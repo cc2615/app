@@ -3,7 +3,7 @@ const path = require('path');
 
 function createWindow() {
   const barWidth = 580;
-  const barHeight = 34;
+  const barHeight = 50;
   const { width: screenWidth } = screen.getPrimaryDisplay().workAreaSize;
 
   const win = new BrowserWindow({
