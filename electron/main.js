@@ -2,18 +2,22 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
 function createWindow() {
-  const win = new BrowserWindow({
-    width: 800,
-    height: 600,
-    transparent: true,
-    frame: false,          
-    alwaysOnTop: true, // always on top
-    skipTaskbar: true, // hide taskbar
-    resizable: false,        
-    webPreferences: {
-      contextIsolation: true,
-    },
-  });
+const win = new BrowserWindow({
+  width: 800,
+  height: 40,
+  x: 0,
+  y: 0,
+  frame: false,
+  transparent: true,
+  resizable: false,
+  alwaysOnTop: true,
+  hasShadow: false,
+  webPreferences: {
+    contextIsolation: true,
+    nodeIntegration: false,
+  },
+});
+
 
   win.loadURL('http://localhost:3000');
 }
