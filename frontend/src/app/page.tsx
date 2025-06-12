@@ -1,7 +1,17 @@
+'use client';
+
 export default function Page() {
+  const handleAskAI = () => {
+    if (window.electron?.openPopup) {
+      window.electron.openPopup();
+    } else {
+      console.warn('Electron IPC not available.');
+    }
+  };
+
   const items = [
     { label: "Chat", shortcut: "Ctrl + B" },
-    { label: "Ask AI", shortcut: "Ctrl + Z" },
+    { label: "Ask AI", shortcut: "Ctrl + Z", onClick: handleAskAI },
     { label: "Restart", shortcut: "Ctrl + R" },
     { label: "Show/Hide", shortcut: "Ctrl + /" },
     { label: "00:00", shortcut: null },
@@ -13,7 +23,8 @@ export default function Page() {
         {items.map((item, idx) => (
           <div
             key={idx}
-            className="no-drag flex items-baseline gap-1 px-3 py-1 rounded-md bg-black/40 hover:bg-black/60 transition"
+            onClick={item.onClick}
+            className="no-drag flex items-baseline gap-1 px-3 py-1 rounded-md bg-black/40 hover:bg-black/60 transition cursor-pointer"
           >
             <span className="text-[13px] font-medium leading-tight">{item.label}</span>
             {item.shortcut && (

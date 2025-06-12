@@ -5,7 +5,6 @@ const cors = require('cors');
 const geminiRoutes = require('./routes/gemini.js')
 require('dotenv').config();
 
-
 app.use(cors());
 app.use(express.json());
 

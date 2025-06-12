@@ -1,14 +1,17 @@
-const { app, BrowserWindow, screen } = require('electron');
+const { app, BrowserWindow, screen, ipcMain } = require('electron');
 const path = require('path');
 
-function createWindow() {
+let mainWindow;
+let popupWindow;
+
+function createMainWindow() {
   const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
 
   // --- dynamic size based on screen dimensions ---
   const barWidth = Math.floor(screenWidth * 0.5);
-  const barHeight = Math.floor(screenHeight * 0.08); 
+  const barHeight = Math.floor(screenHeight * 0.08);
 
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: barWidth,
     height: barHeight,
     x: Math.floor((screenWidth - barWidth) / 2),
@@ -23,21 +26,54 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.js'), // for ipc
     },
   });
 
   const forceRedraw = () => {
-    win.setResizable(true);
-    const [w, h] = win.getSize();
-    win.setSize(w, h + 1);
-    win.setSize(w, h);
-    win.setResizable(false);
+    mainWindow.setResizable(true);
+    const [w, h] = mainWindow.getSize();
+    mainWindow.setSize(w, h + 1);
+    mainWindow.setSize(w, h);
+    mainWindow.setResizable(false);
   };
 
-  win.on('focus', forceRedraw);
-  win.on('blur', forceRedraw);
+  mainWindow.on('focus', forceRedraw);
+  mainWindow.on('blur', forceRedraw);
 
-  win.loadURL('http://localhost:3000/');
+  mainWindow.loadURL('http://localhost:3000/');
 }
 
-app.whenReady().then(createWindow);
+function createPopupWindow() {
+  if (popupWindow) {
+    popupWindow.focus();
+    return;
+  }
+
+  popupWindow = new BrowserWindow({
+    width: 500,
+    height: 350,
+    frame: false,
+    resizable: false,
+    transparent: true,
+    alwaysOnTop: true,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  popupWindow.loadURL('http://localhost:3000/popup');
+
+  popupWindow.on('closed', () => {
+    popupWindow = null;
+  });
+}
+
+app.whenReady().then(createMainWindow);
+
+// --- IPC listener ---
+ipcMain.on('open-popup', () => {
+  createPopupWindow();
+});
