@@ -2,9 +2,11 @@ const { app, BrowserWindow, screen } = require('electron');
 const path = require('path');
 
 function createWindow() {
-  const barWidth = 580;
-  const barHeight = 50;
-  const { width: screenWidth } = screen.getPrimaryDisplay().workAreaSize;
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+
+  // --- dynamic size based on screen dimensions ---
+  const barWidth = Math.floor(screenWidth * 0.5);
+  const barHeight = Math.floor(screenHeight * 0.08); 
 
   const win = new BrowserWindow({
     width: barWidth,
