@@ -63,6 +63,16 @@ function createPopupWindow() {
       nodeIntegration: false,
     },
   });
+    const forceRedraw = () => {
+    popupWindow.setResizable(true);
+    const [w, h] = popupWindow.getSize();
+    popupWindow.setSize(w, h + 1);
+    popupWindow.setSize(w, h);
+    popupWindow.setResizable(false);
+  };
+
+  popupWindow.on('focus', forceRedraw);
+  popupWindow.on('blur', forceRedraw);
 
   popupWindow.loadURL('http://localhost:3000/popup');
 
