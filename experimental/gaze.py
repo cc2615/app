@@ -6,11 +6,13 @@ from sklearn.linear_model import LinearRegression
 # use mediapipe face mesh to get 3d facial landmarks, including iris and eye shape
 detector = mp.solutions.face_mesh.FaceMesh(refine_landmarks=True)
 
-# landmark indices for left eye and iris
-# we use left eye corner points, top/bottom eyelid, and iris center to track gaze
+# landmark indices for left and right eyes and irises
+# we use corner points, top/bottom eyelids, and iris centers for both eyes
 EYE_L = [33, 133]
-TOP, BOTTOM = 159, 145
-IRIS = 468
+EYE_R = [362, 263]
+TOP_L, BOTTOM_L = 159, 145
+TOP_R, BOTTOM_R = 386, 374
+IRIS_L, IRIS_R = 468, 473
 
 # screen dimensions (used to scale the gaze output to fit full screen)
 w, h = 1360, 768
@@ -37,15 +39,14 @@ dots = [
 sx, sy = w//2, h//2
 alpha = 0.2
 
-# extract normalized iris position relative to left eye shape
-# the output is 2 values: x and y from 0 to 1 inside the eye bounding box
-def get_iris(face, fw, fh):
-    x1 = face[EYE_L[0]].x * fw
-    x2 = face[EYE_L[1]].x * fw
-    y1 = face[TOP].y * fh
-    y2 = face[BOTTOM].y * fh
-    ix = face[IRIS].x * fw
-    iy = face[IRIS].y * fh
+# extract normalized iris position relative to eye shape (left or right)
+def get_iris(face, eye, top, bottom, iris_idx, fw, fh):
+    x1 = face[eye[0]].x * fw
+    x2 = face[eye[1]].x * fw
+    y1 = face[top].y * fh
+    y2 = face[bottom].y * fh
+    ix = face[iris_idx].x * fw
+    iy = face[iris_idx].y * fh
     norm_x = (ix - min(x1, x2)) / (abs(x1 - x2) + 1e-6)
     norm_y = (iy - min(y1, y2)) / (abs(y1 - y2) + 1e-6)
     return [norm_x, norm_y]
@@ -62,7 +63,11 @@ while cap.isOpened():
 
     if res.multi_face_landmarks:
         face = res.multi_face_landmarks[0].landmark
-        iris = get_iris(face, fw, fh)
+        iris_l = get_iris(face, EYE_L, TOP_L, BOTTOM_L, IRIS_L, fw, fh)
+        iris_r = get_iris(face, EYE_R, TOP_R, BOTTOM_R, IRIS_R, fw, fh)
+
+        # average of both eyes
+        iris = [(iris_l[0] + iris_r[0]) / 2, (iris_l[1] + iris_r[1]) / 2]
 
         if not calibrated and cal_idx < len(dots):
             # during calibration: show green dot and wait for space key
