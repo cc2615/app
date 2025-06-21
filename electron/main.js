@@ -30,6 +30,8 @@ function createMainWindow() {
     },
   });
 
+  mainWindow.setSkipTaskbar(true);
+
   const forceRedraw = () => {
     mainWindow.setResizable(true);
     const [w, h] = mainWindow.getSize();
@@ -63,7 +65,10 @@ function createPopupWindow() {
       nodeIntegration: false,
     },
   });
-    const forceRedraw = () => {
+
+  popupWindow.setSkipTaskbar(true);
+
+  const forceRedraw = () => {
     popupWindow.setResizable(true);
     const [w, h] = popupWindow.getSize();
     popupWindow.setSize(w, h + 1);
