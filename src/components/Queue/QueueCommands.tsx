@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react"
+import { BsThreeDotsVertical } from "react-icons/bs"
 import { IoLogOutOutline } from "react-icons/io5"
 
 interface QueueCommandsProps {
@@ -10,27 +11,53 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   onTooltipVisibilityChange,
   screenshots
 }) => {
-  const [isTooltipVisible, setIsTooltipVisible] = useState(false)
-  const tooltipRef = useRef<HTMLDivElement>(null)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [audioResult, setAudioResult] = useState<string | null>(null)
   const chunks = useRef<Blob[]>([])
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    let tooltipHeight = 0
-    if (tooltipRef.current && isTooltipVisible) {
-      tooltipHeight = tooltipRef.current.offsetHeight + 10
+    // Close menu when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false)
+      }
     }
-    onTooltipVisibilityChange(isTooltipVisible, tooltipHeight)
-  }, [isTooltipVisible])
 
-  const handleMouseEnter = () => {
-    setIsTooltipVisible(true)
-  }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
-  const handleMouseLeave = () => {
-    setIsTooltipVisible(false)
+  useEffect(() => {
+    if (isRecording) {
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1)
+      }, 1000)
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      setRecordingTime(0)
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [isRecording])
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   const handleRecordClick = async () => {
@@ -71,7 +98,20 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
   return (
     <div className="pt-2 w-fit">
-      <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
+      <div className="text-xs text-white/90 backdrop-blur-md bg-black/70 rounded-2xl py-2 px-4 flex items-center justify-center gap-8">
+        {/* Ask AI (Screenshot feature) */}
+        <div className="flex items-center gap-2 w-24">
+          <span className="text-[11px] leading-none">Ask AI</span>
+          <div className="flex gap-1">
+            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              ⌘
+            </button>
+            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              H
+            </button>
+          </div>
+        </div>
+
         {/* Show/Hide */}
         <div className="flex items-center gap-2">
           <span className="text-[11px] leading-none">Show/Hide</span>
@@ -85,22 +125,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           </div>
         </div>
 
-        {/* Screenshot */}
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] leading-none truncate">
-            {screenshots.length === 0 ? "Take first screenshot" : "Screenshot"}
-          </span>
-          <div className="flex gap-1">
-            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
-              ⌘
-            </button>
-            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
-              H
-            </button>
-          </div>
-        </div>
-
-        {/* Solve Command */}
+        {/* Solve Command - Show only when screenshots exist */}
         {screenshots.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-[11px] leading-none">Solve</span>
@@ -115,114 +140,53 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           </div>
         )}
 
-        {/* Voice Recording Button */}
-        <div className="flex items-center gap-2">
+        {/* Timer (Voice Recording) */}
+        <div className="flex items-center gap-1">
+          {isRecording ? (
+            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+          ) : (
+            <svg className="w-3 h-3 text-white/70" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 1c-1.66 0-3 1.34-3 3v8c0 1.66 1.34 3 3 3s3-1.34 3-3V4c0-1.66-1.34-3-3-3zm6.5 9c0 3.59-2.91 6.5-6.5 6.5S5.5 13.59 5.5 10H4c0 4.27 3.18 7.83 7.5 8.46v2.54h-2v1.5h5.5V21h-2v-2.54c4.32-.63 7.5-4.19 7.5-8.46h-1.5z"/>
+            </svg>
+          )}
           <button
-            className={`bg-white/10 hover:bg-white/20 transition-colors rounded-md px-2 py-1 text-[11px] leading-none text-white/70 flex items-center gap-1 ${isRecording ? 'bg-red-500/70 hover:bg-red-500/90' : ''}`}
+            className="text-[11px] leading-none text-white/70 hover:text-white/90 transition-colors"
             onClick={handleRecordClick}
             type="button"
           >
-            {isRecording ? (
-              <span className="animate-pulse">● Stop Recording</span>
-            ) : (
-              <span>🎤 Record Voice</span>
-            )}
+            {isRecording ? formatTime(recordingTime) : "00:00"}
           </button>
         </div>
 
-        {/* Question mark with tooltip */}
-        <div
-          className="relative inline-block"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          <div className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-colors flex items-center justify-center cursor-help z-10">
-            <span className="text-xs text-white/70">?</span>
-          </div>
+        {/* Three Dots Menu */}
+        <div className="relative" ref={menuRef}>
+          <button
+            className="text-white/70 hover:text-white/90 transition-colors hover:cursor-pointer"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            <BsThreeDotsVertical className="w-3 h-3" />
+          </button>
 
-          {/* Tooltip Content */}
-          {isTooltipVisible && (
-            <div
-              ref={tooltipRef}
-              className="absolute top-full right-0 mt-2 w-80"
-            >
-              <div className="p-3 text-xs bg-black/80 backdrop-blur-md rounded-lg border border-white/10 text-white/90 shadow-lg">
-                <div className="space-y-4">
-                  <h3 className="font-medium truncate">Keyboard Shortcuts</h3>
-                  <div className="space-y-3">
-                    {/* Toggle Command */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate">Toggle Window</span>
-                        <div className="flex gap-1 flex-shrink-0">
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
-                            ⌘
-                          </span>
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
-                            B
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] leading-relaxed text-white/70 truncate">
-                        Show or hide this window.
-                      </p>
-                    </div>
-                    {/* Screenshot Command */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate">Take Screenshot</span>
-                        <div className="flex gap-1 flex-shrink-0">
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
-                            ⌘
-                          </span>
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
-                            H
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] leading-relaxed text-white/70 truncate">
-                        Take a screenshot of the problem description. The tool
-                        will extract and analyze the problem. The 5 latest
-                        screenshots are saved.
-                      </p>
-                    </div>
-
-                    {/* Solve Command */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate">Solve Problem</span>
-                        <div className="flex gap-1 flex-shrink-0">
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
-                            ⌘
-                          </span>
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
-                            ↵
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] leading-relaxed text-white/70 truncate">
-                        Generate a solution based on the current problem.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+          {/* Dropdown Menu */}
+          {isMenuOpen && (
+            <div className="absolute top-full right-0 mt-2 w-32">
+              <div className="p-2 bg-black/80 backdrop-blur-md rounded-lg border border-white/10 shadow-lg">
+                <button
+                  className="flex items-center gap-2 w-full px-2 py-1 text-xs text-red-500/70 hover:text-red-500/90 hover:bg-red-500/10 rounded transition-colors"
+                  onClick={() => {
+                    window.electronAPI.quitApp()
+                    setIsMenuOpen(false)
+                  }}
+                >
+                  <IoLogOutOutline className="w-4 h-4" />
+                  <span>Close</span>
+                </button>
               </div>
             </div>
           )}
         </div>
-
-        {/* Separator */}
-        <div className="mx-2 h-4 w-px bg-white/20" />
-
-        {/* Sign Out Button - Moved to end */}
-        <button
-          className="text-red-500/70 hover:text-red-500/90 transition-colors hover:cursor-pointer"
-          title="Sign Out"
-          onClick={() => window.electronAPI.quitApp()}
-        >
-          <IoLogOutOutline className="w-4 h-4" />
-        </button>
       </div>
+
       {/* Audio Result Display */}
       {audioResult && (
         <div className="mt-2 p-2 bg-white/10 rounded text-white text-xs max-w-md">

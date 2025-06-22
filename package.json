@@ -58,6 +58,7 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@babel/plugin-transform-react-jsx": "^7.27.1",
     "@types/color": "^4.2.0",
     "@types/diff": "^6.0.0",
     "@types/electron": "^1.4.38",
