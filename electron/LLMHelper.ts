@@ -3,7 +3,7 @@ import fs from "fs"
 
 export class LLMHelper {
   private model: GenerativeModel
-  private readonly systemPrompt = `You are Wingman AI, a helpful, proactive assistant for any kind of problem or situation (not just coding). For any user input, analyze the situation, provide a clear problem statement, relevant context, and suggest several possible responses or actions the user could take next. Always explain your reasoning. Present your suggestions as a list of options or next steps.`
+  private readonly systemPrompt = `You are Wingman AI, a direct and helpful assistant. Provide clear, actionable responses without explaining your reasoning process. Be concise and focus on what the user needs to know or do next.`
 
   constructor(apiKey: string) {
     const genAI = new GoogleGenerativeAI(apiKey)
@@ -32,12 +32,15 @@ export class LLMHelper {
     try {
       const imageParts = await Promise.all(imagePaths.map(path => this.fileToGenerativePart(path)))
       
-      const prompt = `${this.systemPrompt}\n\nYou are a wingman. Please analyze these images and extract the following information in JSON format:\n{
-  "problem_statement": "A clear statement of the problem or situation depicted in the images.",
-  "context": "Relevant background or context from the images.",
-  "suggested_responses": ["First possible answer or action", "Second possible answer or action", "..."],
-  "reasoning": "Explanation of why these suggestions are appropriate."
-}\nImportant: Return ONLY the JSON object, without any markdown formatting or code blocks.`
+      const prompt = `Analyze these images and extract the key information in JSON format:
+{
+  "problem_statement": "What specific problem or task needs to be solved",
+  "context": "Essential background details",
+  "suggested_responses": ["Direct action 1", "Direct action 2", "Direct action 3"],
+  "reasoning": "Brief explanation of approach"
+}
+
+Return only the JSON object.`
 
       const result = await this.model.generateContent([prompt, ...imageParts])
       const response = await result.response
@@ -50,15 +53,20 @@ export class LLMHelper {
   }
 
   public async generateSolution(problemInfo: any) {
-    const prompt = `${this.systemPrompt}\n\nGiven this problem or situation:\n${JSON.stringify(problemInfo, null, 2)}\n\nPlease provide your response in the following JSON format:\n{
+    const prompt = `Given this problem: ${JSON.stringify(problemInfo, null, 2)}
+
+Provide a direct solution in JSON format:
+{
   "solution": {
-    "code": "The code or main answer here.",
-    "problem_statement": "Restate the problem or situation.",
-    "context": "Relevant background/context.",
-    "suggested_responses": ["First possible answer or action", "Second possible answer or action", "..."],
-    "reasoning": "Explanation of why these suggestions are appropriate."
+    "code": "The solution code or main answer",
+    "problem_statement": "Clear restatement of the problem",
+    "context": "Key details needed",
+    "suggested_responses": ["Next action 1", "Next action 2", "Next action 3"],
+    "reasoning": "Brief justification"
   }
-}\nImportant: Return ONLY the JSON object, without any markdown formatting or code blocks.`
+}
+
+Return only the JSON object.`
 
     console.log("[LLMHelper] Calling Gemini LLM for solution...");
     try {
@@ -79,15 +87,21 @@ export class LLMHelper {
     try {
       const imageParts = await Promise.all(debugImagePaths.map(path => this.fileToGenerativePart(path)))
       
-      const prompt = `${this.systemPrompt}\n\nYou are a wingman. Given:\n1. The original problem or situation: ${JSON.stringify(problemInfo, null, 2)}\n2. The current response or approach: ${currentCode}\n3. The debug information in the provided images\n\nPlease analyze the debug information and provide feedback in this JSON format:\n{
+      const prompt = `Original problem: ${JSON.stringify(problemInfo, null, 2)}
+Current approach: ${currentCode}
+
+Analyze the debug images and provide an improved solution:
+{
   "solution": {
-    "code": "The code or main answer here.",
-    "problem_statement": "Restate the problem or situation.",
-    "context": "Relevant background/context.",
-    "suggested_responses": ["First possible answer or action", "Second possible answer or action", "..."],
-    "reasoning": "Explanation of why these suggestions are appropriate."
+    "code": "Updated solution code",
+    "problem_statement": "Problem restatement",
+    "context": "Relevant details from debug info",
+    "suggested_responses": ["Fix action 1", "Fix action 2", "Fix action 3"],
+    "reasoning": "What was wrong and how this fixes it"
   }
-}\nImportant: Return ONLY the JSON object, without any markdown formatting or code blocks.`
+}
+
+Return only the JSON object.`
 
       const result = await this.model.generateContent([prompt, ...imageParts])
       const response = await result.response
@@ -110,7 +124,9 @@ export class LLMHelper {
           mimeType: "audio/mp3"
         }
       };
-      const prompt = `${this.systemPrompt}\n\nDescribe this audio clip in a short, concise answer. In addition to your main answer, suggest several possible actions or responses the user could take next based on the audio. Do not return a structured JSON object, just answer naturally as you would to a user.`;
+      
+      const prompt = `Listen to this audio and respond directly. What was said and what should I do next? Keep it brief and actionable.`;
+      
       const result = await this.model.generateContent([prompt, audioPart]);
       const response = await result.response;
       const text = response.text();
@@ -129,7 +145,9 @@ export class LLMHelper {
           mimeType
         }
       };
-      const prompt = `${this.systemPrompt}\n\nDescribe this audio clip in a short, concise answer. In addition to your main answer, suggest several possible actions or responses the user could take next based on the audio. Do not return a structured JSON object, just answer naturally as you would to a user and be concise.`;
+      
+      const prompt = `Listen to this audio. What was said and what should I do? Be direct and brief.`;
+      
       const result = await this.model.generateContent([prompt, audioPart]);
       const response = await result.response;
       const text = response.text();
@@ -149,7 +167,9 @@ export class LLMHelper {
           mimeType: "image/png"
         }
       };
-      const prompt = `${this.systemPrompt}\n\nDescribe the content of this image in a short, concise answer. In addition to your main answer, suggest several possible actions or responses the user could take next based on the image. Do not return a structured JSON object, just answer naturally as you would to a user. Be concise and brief.`;
+      
+      const prompt = `What do you see in this image? What should I do next? Be direct and concise.`;
+      
       const result = await this.model.generateContent([prompt, imagePart]);
       const response = await result.response;
       const text = response.text();
@@ -159,4 +179,4 @@ export class LLMHelper {
       throw error;
     }
   }
-} 
+}
