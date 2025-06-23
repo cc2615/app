@@ -170,12 +170,13 @@ export class WindowHelper {
       console.warn("Main window does not exist or is destroyed.")
       return
     }
-
     const bounds = this.mainWindow.getBounds()
     this.windowPosition = { x: bounds.x, y: bounds.y }
     this.windowSize = { width: bounds.width, height: bounds.height }
     this.mainWindow.hide()
     this.isWindowVisible = false
+    // Disable all shortcuts except show/hide
+    this.appState.shortcutsHelper.registerShowHideShortcutOnly()
   }
 
   public showMainWindow(): void {
@@ -183,7 +184,6 @@ export class WindowHelper {
       console.warn("Main window does not exist or is destroyed.")
       return
     }
-
     if (this.windowPosition && this.windowSize) {
       this.mainWindow.setBounds({
         x: this.windowPosition.x,
@@ -192,10 +192,10 @@ export class WindowHelper {
         height: this.windowSize.height
       })
     }
-
     this.mainWindow.showInactive()
-
     this.isWindowVisible = true
+    // Enable all shortcuts except show/hide (which is already registered)
+    this.appState.shortcutsHelper.registerNonToggleShortcuts()
   }
 
   public toggleMainWindow(): void {

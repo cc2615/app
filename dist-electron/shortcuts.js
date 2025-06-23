@@ -4,10 +4,57 @@ exports.ShortcutsHelper = void 0;
 const electron_1 = require("electron");
 class ShortcutsHelper {
     appState;
+    isToggling = false; // Prevent rapid toggling
     constructor(appState) {
         this.appState = appState;
+        // Register will-quit listener only once
+        electron_1.app.on("will-quit", () => {
+            electron_1.globalShortcut.unregisterAll();
+        });
     }
+    // Register all shortcuts
     registerGlobalShortcuts() {
+        this.unregisterAllShortcuts();
+        this.registerScreenshotShortcut();
+        this.registerProcessShortcut();
+        this.registerResetShortcut();
+        this.registerMoveShortcuts();
+        this.registerShowHideShortcut();
+    }
+    // Register only the show/hide shortcut (Ctrl+B)
+    registerShowHideShortcutOnly() {
+        this.unregisterAllShortcuts();
+        // Add small delay to prevent immediate re-triggering
+        setTimeout(() => {
+            this.registerShowHideShortcut();
+        }, 50);
+    }
+    // Register all shortcuts except show/hide (for when window is shown)
+    registerNonToggleShortcuts() {
+        // Add small delay to prevent immediate triggering
+        setTimeout(() => {
+            this.unregisterNonToggleShortcuts();
+            this.registerScreenshotShortcut();
+            this.registerProcessShortcut();
+            this.registerResetShortcut();
+            this.registerMoveShortcuts();
+        }, 50);
+    }
+    // Unregister all shortcuts
+    unregisterAllShortcuts() {
+        electron_1.globalShortcut.unregisterAll();
+    }
+    // Unregister only non-toggle shortcuts (keep show/hide active)
+    unregisterNonToggleShortcuts() {
+        electron_1.globalShortcut.unregister("CommandOrControl+H");
+        electron_1.globalShortcut.unregister("CommandOrControl+Enter");
+        electron_1.globalShortcut.unregister("CommandOrControl+R");
+        electron_1.globalShortcut.unregister("CommandOrControl+Left");
+        electron_1.globalShortcut.unregister("CommandOrControl+Right");
+        electron_1.globalShortcut.unregister("CommandOrControl+Down");
+        electron_1.globalShortcut.unregister("CommandOrControl+Up");
+    }
+    registerScreenshotShortcut() {
         electron_1.globalShortcut.register("CommandOrControl+H", async () => {
             const mainWindow = this.appState.getMainWindow();
             if (mainWindow) {
@@ -25,25 +72,26 @@ class ShortcutsHelper {
                 }
             }
         });
+    }
+    registerProcessShortcut() {
         electron_1.globalShortcut.register("CommandOrControl+Enter", async () => {
             await this.appState.processingHelper.processScreenshots();
         });
+    }
+    registerResetShortcut() {
         electron_1.globalShortcut.register("CommandOrControl+R", () => {
             console.log("Command + R pressed. Canceling requests and resetting queues...");
-            // Cancel ongoing API requests
             this.appState.processingHelper.cancelOngoingRequests();
-            // Clear both screenshot queues
             this.appState.clearQueues();
             console.log("Cleared queues.");
-            // Update the view state to 'queue'
             this.appState.setView("queue");
-            // Notify renderer process to switch view to 'queue'
             const mainWindow = this.appState.getMainWindow();
             if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send("reset-view");
             }
         });
-        // New shortcuts for moving the window
+    }
+    registerMoveShortcuts() {
         electron_1.globalShortcut.register("CommandOrControl+Left", () => {
             console.log("Command/Ctrl + Left pressed. Moving window left.");
             this.appState.moveWindowLeft();
@@ -60,15 +108,24 @@ class ShortcutsHelper {
             console.log("Command/Ctrl + Up pressed. Moving window Up.");
             this.appState.moveWindowUp();
         });
+    }
+    registerShowHideShortcut() {
         electron_1.globalShortcut.register("CommandOrControl+B", () => {
+            // Prevent rapid toggling
+            if (this.isToggling)
+                return;
+            this.isToggling = true;
             this.appState.toggleMainWindow();
+            // Reset the flag after a short delay
+            setTimeout(() => {
+                this.isToggling = false;
+            }, 200);
             // If window exists and we're showing it, bring it to front
             const mainWindow = this.appState.getMainWindow();
-            if (mainWindow && !this.appState.isVisible()) {
+            if (mainWindow && this.appState.isVisible()) {
                 // Force the window to the front on macOS
                 if (process.platform === "darwin") {
                     mainWindow.setAlwaysOnTop(true, "normal");
-                    // Reset alwaysOnTop after a brief delay
                     setTimeout(() => {
                         if (mainWindow && !mainWindow.isDestroyed()) {
                             mainWindow.setAlwaysOnTop(true, "floating");
@@ -76,10 +133,6 @@ class ShortcutsHelper {
                     }, 100);
                 }
             }
-        });
-        // Unregister shortcuts when quitting
-        electron_1.app.on("will-quit", () => {
-            electron_1.globalShortcut.unregisterAll();
         });
     }
 }

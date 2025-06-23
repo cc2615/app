@@ -152,6 +152,8 @@ class WindowHelper {
         this.windowSize = { width: bounds.width, height: bounds.height };
         this.mainWindow.hide();
         this.isWindowVisible = false;
+        // Disable all shortcuts except show/hide
+        this.appState.shortcutsHelper.registerShowHideShortcutOnly();
     }
     showMainWindow() {
         if (!this.mainWindow || this.mainWindow.isDestroyed()) {
@@ -168,6 +170,8 @@ class WindowHelper {
         }
         this.mainWindow.showInactive();
         this.isWindowVisible = true;
+        // Enable all shortcuts except show/hide (which is already registered)
+        this.appState.shortcutsHelper.registerNonToggleShortcuts();
     }
     toggleMainWindow() {
         if (this.isWindowVisible) {
