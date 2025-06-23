@@ -98,7 +98,7 @@ export class WindowHelper {
 
     this.mainWindow = new BrowserWindow(windowSettings)
     // this.mainWindow.webContents.openDevTools()
-    this.mainWindow.setContentProtection(true)
+    this.mainWindow.setContentProtection(false) // toggle screen capture
 
     if (process.platform === "darwin") {
       this.mainWindow.setVisibleOnAllWorkspaces(true, {
