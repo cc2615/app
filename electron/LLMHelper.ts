@@ -2,7 +2,6 @@ import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai"
 import fs from "fs"
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import 'katex/dist/katex.min.css';
 
 export class LLMHelper {
   private model: GenerativeModel
