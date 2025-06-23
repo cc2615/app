@@ -1,9 +1,12 @@
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai"
 import fs from "fs"
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 export class LLMHelper {
   private model: GenerativeModel
-  private readonly systemPrompt = `You are Wingman AI, a direct and helpful assistant. Provide clear, actionable responses without explaining your reasoning process. Be concise and focus on what the user needs to know or do next.`
+  private readonly systemPrompt = `You are Wingman AI, a direct problem-solving assistant. When given a task, solve it immediately and concisely. Don't suggest external tools - you ARE the tool. Be brief and actionable.`
 
   constructor(apiKey: string) {
     const genAI = new GoogleGenerativeAI(apiKey)
@@ -34,10 +37,10 @@ export class LLMHelper {
       
       const prompt = `Analyze these images and extract the key information in JSON format:
 {
-  "problem_statement": "What specific problem or task needs to be solved",
-  "context": "Essential background details",
-  "suggested_responses": ["Direct action 1", "Direct action 2", "Direct action 3"],
-  "reasoning": "Brief explanation of approach"
+  "problem_statement": "The actual problem to solve (be specific and concise)",
+  "context": "Essential details only",
+  "suggested_responses": ["Direct solution", "Alternative approach", "Next action"],
+  "reasoning": "One sentence why"
 }
 
 Return only the JSON object.`
@@ -55,18 +58,18 @@ Return only the JSON object.`
   public async generateSolution(problemInfo: any) {
     const prompt = `Given this problem: ${JSON.stringify(problemInfo, null, 2)}
 
-Provide a direct solution in JSON format:
+Solve it directly. Provide the solution in JSON format:
 {
   "solution": {
-    "code": "The solution code or main answer",
-    "problem_statement": "Clear restatement of the problem",
-    "context": "Key details needed",
-    "suggested_responses": ["Next action 1", "Next action 2", "Next action 3"],
-    "reasoning": "Brief justification"
+    "code": "The actual solution with working steps, not suggestions to use other tools",
+    "problem_statement": "Problem restatement (brief)",
+    "context": "Key details only", 
+    "suggested_responses": ["Next step 1", "Next step 2", "Next step 3"],
+    "reasoning": "One sentence justification"
   }
 }
 
-Return only the JSON object.`
+For math problems: show the work and final answer. For code: provide working code. Don't suggest external tools - solve it yourself. Return only the JSON object.`
 
     console.log("[LLMHelper] Calling Gemini LLM for solution...");
     try {
@@ -146,7 +149,7 @@ Return only the JSON object.`
         }
       };
       
-      const prompt = `Listen to this audio. What was said and what should I do? Be direct and brief.`;
+      const prompt = `Listen to this audio and solve any problem mentioned. If it's a question, answer it directly. If it's a task, complete it. Be brief - give the solution, not suggestions to use other tools.`;
       
       const result = await this.model.generateContent([prompt, audioPart]);
       const response = await result.response;
@@ -168,7 +171,7 @@ Return only the JSON object.`
         }
       };
       
-      const prompt = `What do you see in this image? What should I do next? Be direct and concise.`;
+      const prompt = `Analyze this image and solve the problem shown. If it's math, solve it. If it's code, fix it. If it's a question, answer it. Be direct and brief - give the solution first, then one short next step if needed.`;
       
       const result = await this.model.generateContent([prompt, imagePart]);
       const response = await result.response;

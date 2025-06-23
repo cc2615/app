@@ -1,8 +1,10 @@
 // Solutions.tsx
 import React, { useState, useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "react-query"
+import ReactMarkdown from "react-markdown"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
+import remarkGfm from "remark-gfm"
 
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue"
 import {
@@ -18,6 +20,14 @@ import SolutionCommands from "../components/Solutions/SolutionCommands"
 import Debug from "./Debug"
 
 // (Using global ElectronAPI type from src/types/electron.d.ts)
+
+function omit<T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> {
+  const ret = { ...obj }
+  for (const key of keys) {
+    delete ret[key]
+  }
+  return ret
+}
 
 export const ContentSection = ({
   title,
@@ -39,12 +49,58 @@ export const ContentSection = ({
         </p>
       </div>
     ) : (
-      <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px]">
-        {content}
+      <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px] markdown-content">
+        {typeof content === 'string' ? (
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code({ node, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '')
+                return !(node && "inline" in node && (node as any).inline) && match ? (
+                  <SyntaxHighlighter
+                    style={dracula as any}
+                    language={match[1]}
+                    PreTag="div"
+                    customStyle={{
+                      margin: '0.5rem 0',
+                      borderRadius: '6px',
+                      fontSize: '12px'
+                    }}
+                    {...omit(props, ['ref'])}
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code className="bg-gray-800 px-1 py-0.5 rounded text-xs" {...props}>
+                    {children}
+                  </code>
+                )
+              },
+              p: ({ children }) => <p className="mb-2">{children}</p>,
+              ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+              li: ({ children }) => <li className="text-[13px]">{children}</li>,
+              h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+              h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
+              h3: ({ children }) => <h3 className="text-sm font-medium mb-1">{children}</h3>,
+              blockquote: ({ children }) => (
+                <blockquote className="border-l-4 border-blue-400 pl-3 italic text-gray-300 mb-2">
+                  {children}
+                </blockquote>
+              ),
+              strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+            }}
+          >
+            {content}
+          </ReactMarkdown>
+        ) : (
+          content
+        )}
       </div>
     )}
   </div>
 )
+
 const SolutionSection = ({
   title,
   content,
@@ -67,22 +123,56 @@ const SolutionSection = ({
         </div>
       </div>
     ) : (
-      <div className="w-full">
-        <SyntaxHighlighter
-          showLineNumbers
-          language="python"
-          style={dracula}
-          customStyle={{
-            maxWidth: "100%",
-            margin: 0,
-            padding: "1rem",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all"
-          }}
-          wrapLongLines={true}
-        >
-          {content as string}
-        </SyntaxHighlighter>
+      <div className="w-full markdown-content">
+        {typeof content === 'string' ? (
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code({ node, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '')
+                return !(node && "inline" in node && (node as any).inline) && match ? (
+                  <SyntaxHighlighter
+                    showLineNumbers
+                    language={match[1]}
+                    style={dracula as any}
+                    customStyle={{
+                      maxWidth: "100%",
+                      margin: 0,
+                      padding: "1rem",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-all"
+                    }}
+                    wrapLongLines={true}
+                    {...omit(props, ['ref'])}
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code className="bg-gray-800 px-1 py-0.5 rounded text-xs" {...props}>
+                    {children}
+                  </code>
+                )
+              },
+              p: ({ children }) => <p className="mb-2 text-[13px] leading-[1.4] text-gray-100">{children}</p>,
+              ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+              li: ({ children }) => <li className="text-[13px] text-gray-100">{children}</li>,
+              h1: ({ children }) => <h1 className="text-lg font-bold mb-2 text-white">{children}</h1>,
+              h2: ({ children }) => <h2 className="text-base font-semibold mb-2 text-white">{children}</h2>,
+              h3: ({ children }) => <h3 className="text-sm font-medium mb-1 text-white">{children}</h3>,
+              blockquote: ({ children }) => (
+                <blockquote className="border-l-4 border-blue-400 pl-3 italic text-gray-300 mb-2">
+                  {children}
+                </blockquote>
+              ),
+              strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+            }}
+          >
+            {content}
+          </ReactMarkdown>
+        ) : (
+          content
+        )}
       </div>
     )}
   </div>
