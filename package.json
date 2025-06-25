@@ -41,11 +41,11 @@
         {
           "target": "nsis",
           "arch": ["x64"]
-        },
-        "portable"
+        }
       ],
-      "icon": "assets/icons/win/icon.ico",
-      "sign": false
+      "icon": "icons/icon.ico",
+      "sign": false,
+      "artifactName": "ParadigmSetup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
