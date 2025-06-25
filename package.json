@@ -1,11 +1,14 @@
 {
-  "name": "interview-coder",
+  "name": "Paradigm",
   "version": "1.0.0",
   "main": "./dist-electron/main.js",
   "scripts": {
-    "clean": "rimraf dist dist-electron",
+    "clean": "rimraf dist dist-electron release",
+    "clean:safe": "powershell -Command \"if (Test-Path 'release') { Rename-Item 'release' 'release_old_backup' -Force }\"",
+    "build:safe": "npm run clean:safe && tsc -p electron/tsconfig.json && vite build",
+    "app:build:safe": "npm run build:safe && electron-builder",
     "dev": "vite",
-    "build": "npm run clean && tsc && vite build",
+    "build": "npm run clean && tsc -p electron/tsconfig.json && vite build",
     "preview": "vite preview",
     "electron:dev": "tsc -p electron/tsconfig.json && electron .",
     "app:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env electron .\"",
@@ -13,12 +16,14 @@
     "watch": "tsc -p electron/tsconfig.json --watch"
   },
   "build": {
-    "appId": "com.electron.interview-coder",
-    "productName": "Interview Coder",
+    "appId": "com.cc2615.paradigm",
+    "productName": "Paradigm",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "package.json"
+      "package.json",
+      ".env",
+      "node_modules/dotenv/**/*"
     ],
     "directories": {
       "output": "release"
@@ -33,10 +38,20 @@
     },
     "win": {
       "target": [
-        "nsis",
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
         "portable"
       ],
-      "icon": "assets/icons/win/icon.ico"
+      "icon": "assets/icons/win/icon.ico",
+      "sign": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "linux": {
       "target": [
@@ -45,18 +60,26 @@
       ],
       "icon": "assets/icons/png/icon-256x256.png"
     },
-    "publish": [
+    "extraResources": [
       {
-        "provider": "github",
-        "owner": "ibttf",
-        "repo": "interview-coder-frontend"
+        "from": ".env",
+        "to": ".env"
       }
-    ]
+    ],
+    "includeSubNodeModules": true
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": ["electron", "desktop-app", "AI", "assistant", "computer-vision", "OCR", "productivity"],
+  "author": "Christopher Ma <chris.pengfei.ma@gmail.com>, Caden Chen <cadenc.woss@gmail.com>",
+  "license": "MIT",
+  "description": "An AI-powered assistant that helps you solve problems through screenshots, voice input, and intelligent analysis. PARADIGM combines computer vision, natural language processing to provide real-time assistance.",
+  "homepage": "https://github.com/cc2615/app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cc2615/app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cc2615/app/issues"
+  },
   "devDependencies": {
     "@babel/plugin-transform-react-jsx": "^7.27.1",
     "@types/color": "^4.2.0",

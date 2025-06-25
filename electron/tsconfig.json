@@ -5,14 +5,24 @@
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "noImplicitAny": true,
     "sourceMap": true,
-    "jsx": "react-jsx",
     "baseUrl": ".",
     "outDir": "../dist-electron",
     "moduleResolution": "node",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "strict": true,
+    "declaration": false,
+    "removeComments": true
   },
-  "include": ["*.ts"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "../dist",
+    "../dist-electron"
+  ]
 }
-

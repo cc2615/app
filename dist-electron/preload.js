@@ -3,26 +3,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PROCESSING_EVENTS = void 0;
 const electron_1 = require("electron");
 exports.PROCESSING_EVENTS = {
-    //global states
     UNAUTHORIZED: "procesing-unauthorized",
     NO_SCREENSHOTS: "processing-no-screenshots",
-    //states for generating the initial solution
     INITIAL_START: "initial-start",
     PROBLEM_EXTRACTED: "problem-extracted",
     SOLUTION_SUCCESS: "solution-success",
     INITIAL_SOLUTION_ERROR: "solution-error",
-    //states for processing the debugging
     DEBUG_START: "debug-start",
     DEBUG_SUCCESS: "debug-success",
     DEBUG_ERROR: "debug-error"
 };
-// Expose the Electron API to the renderer process
 electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     updateContentDimensions: (dimensions) => electron_1.ipcRenderer.invoke("update-content-dimensions", dimensions),
     takeScreenshot: () => electron_1.ipcRenderer.invoke("take-screenshot"),
     getScreenshots: () => electron_1.ipcRenderer.invoke("get-screenshots"),
     deleteScreenshot: (path) => electron_1.ipcRenderer.invoke("delete-screenshot", path),
-    // Event listeners
     onScreenshotTaken: (callback) => {
         const subscription = (_, data) => callback(data);
         electron_1.ipcRenderer.on("screenshot-taken", subscription);

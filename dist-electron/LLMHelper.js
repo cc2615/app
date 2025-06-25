@@ -23,9 +23,7 @@ class LLMHelper {
         };
     }
     cleanJsonResponse(text) {
-        // Remove markdown code block syntax if present
         text = text.replace(/^```(?:json)?\n/, '').replace(/\n```$/, '');
-        // Remove any leading/trailing whitespace
         text = text.trim();
         return text;
     }

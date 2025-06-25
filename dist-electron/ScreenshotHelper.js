@@ -1,5 +1,4 @@
 "use strict";
-// ScreenshotHelper.ts
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -19,10 +18,8 @@ class ScreenshotHelper {
     view = "queue";
     constructor(view = "queue") {
         this.view = view;
-        // Initialize directories
         this.screenshotDir = node_path_1.default.join(electron_1.app.getPath("userData"), "screenshots");
         this.extraScreenshotDir = node_path_1.default.join(electron_1.app.getPath("userData"), "extra_screenshots");
-        // Create directories if they don't exist
         if (!node_fs_1.default.existsSync(this.screenshotDir)) {
             node_fs_1.default.mkdirSync(this.screenshotDir);
         }
@@ -43,7 +40,6 @@ class ScreenshotHelper {
         return this.extraScreenshotQueue;
     }
     clearQueues() {
-        // Clear screenshotQueue
         this.screenshotQueue.forEach((screenshotPath) => {
             node_fs_1.default.unlink(screenshotPath, (err) => {
                 if (err)
@@ -51,7 +47,6 @@ class ScreenshotHelper {
             });
         });
         this.screenshotQueue = [];
-        // Clear extraScreenshotQueue
         this.extraScreenshotQueue.forEach((screenshotPath) => {
             node_fs_1.default.unlink(screenshotPath, (err) => {
                 if (err)
@@ -121,7 +116,7 @@ class ScreenshotHelper {
         }
         catch (error) {
             console.error("Error deleting file:", error);
-            return { success: false, error: error.message };
+            return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
     }
 }

@@ -4,15 +4,13 @@ exports.ShortcutsHelper = void 0;
 const electron_1 = require("electron");
 class ShortcutsHelper {
     appState;
-    isToggling = false; // Prevent rapid toggling
+    isToggling = false;
     constructor(appState) {
         this.appState = appState;
-        // Register will-quit listener only once
         electron_1.app.on("will-quit", () => {
             electron_1.globalShortcut.unregisterAll();
         });
     }
-    // Register all shortcuts
     registerGlobalShortcuts() {
         this.unregisterAllShortcuts();
         this.registerScreenshotShortcut();
@@ -21,17 +19,13 @@ class ShortcutsHelper {
         this.registerMoveShortcuts();
         this.registerShowHideShortcut();
     }
-    // Register only the show/hide shortcut (Ctrl+B)
     registerShowHideShortcutOnly() {
         this.unregisterAllShortcuts();
-        // Add small delay to prevent immediate re-triggering
         setTimeout(() => {
             this.registerShowHideShortcut();
         }, 50);
     }
-    // Register all shortcuts except show/hide (for when window is shown)
     registerNonToggleShortcuts() {
-        // Add small delay to prevent immediate triggering
         setTimeout(() => {
             this.unregisterNonToggleShortcuts();
             this.registerScreenshotShortcut();
@@ -40,11 +34,9 @@ class ShortcutsHelper {
             this.registerMoveShortcuts();
         }, 50);
     }
-    // Unregister all shortcuts
     unregisterAllShortcuts() {
         electron_1.globalShortcut.unregisterAll();
     }
-    // Unregister only non-toggle shortcuts (keep show/hide active)
     unregisterNonToggleShortcuts() {
         electron_1.globalShortcut.unregister("CommandOrControl+H");
         electron_1.globalShortcut.unregister("CommandOrControl+Enter");
@@ -111,19 +103,15 @@ class ShortcutsHelper {
     }
     registerShowHideShortcut() {
         electron_1.globalShortcut.register("CommandOrControl+B", () => {
-            // Prevent rapid toggling
             if (this.isToggling)
                 return;
             this.isToggling = true;
             this.appState.toggleMainWindow();
-            // Reset the flag after a short delay
             setTimeout(() => {
                 this.isToggling = false;
             }, 200);
-            // If window exists and we're showing it, bring it to front
             const mainWindow = this.appState.getMainWindow();
             if (mainWindow && this.appState.isVisible()) {
-                // Force the window to the front on macOS
                 if (process.platform === "darwin") {
                     mainWindow.setAlwaysOnTop(true, "normal");
                     setTimeout(() => {

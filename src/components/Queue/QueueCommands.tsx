@@ -25,6 +25,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false)
+        onTooltipVisibilityChange(false, 0)
       }
     }
 
@@ -32,7 +33,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [])
+  }, [onTooltipVisibilityChange])
 
   useEffect(() => {
     if (isRecording) {
@@ -94,6 +95,13 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       setIsRecording(false)
       setMediaRecorder(null)
     }
+  }
+
+  const handleMenuToggle = () => {
+    const newMenuState = !isMenuOpen
+    setIsMenuOpen(newMenuState)
+    // Notify parent about tooltip visibility change
+    onTooltipVisibilityChange(newMenuState, newMenuState ? 150 : 0) // Approximate height
   }
 
   return (
@@ -162,7 +170,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         <div className="relative" ref={menuRef}>
           <button
             className="text-white/70 hover:text-white/90 transition-colors hover:cursor-pointer"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            onClick={handleMenuToggle}
           >
             <BsThreeDotsVertical className="w-3 h-3" />
           </button>
@@ -176,6 +184,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                   onClick={() => {
                     window.electronAPI.quitApp()
                     setIsMenuOpen(false)
+                    onTooltipVisibilityChange(false, 0)
                   }}
                 >
                   <IoLogOutOutline className="w-4 h-4" />

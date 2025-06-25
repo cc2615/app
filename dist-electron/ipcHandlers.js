@@ -1,5 +1,4 @@
 "use strict";
-// ipcHandlers.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.initializeIpcHandlers = initializeIpcHandlers;
 const electron_1 = require("electron");
@@ -61,7 +60,6 @@ function initializeIpcHandlers(appState) {
             return { success: false, error: error.message };
         }
     });
-    // IPC handler for analyzing audio from base64 data
     electron_1.ipcMain.handle("analyze-audio-base64", async (event, data, mimeType) => {
         try {
             const result = await appState.processingHelper.processAudioBase64(data, mimeType);
@@ -72,7 +70,6 @@ function initializeIpcHandlers(appState) {
             throw error;
         }
     });
-    // IPC handler for analyzing audio from file path
     electron_1.ipcMain.handle("analyze-audio-file", async (event, path) => {
         try {
             const result = await appState.processingHelper.processAudioFile(path);
@@ -83,7 +80,6 @@ function initializeIpcHandlers(appState) {
             throw error;
         }
     });
-    // IPC handler for analyzing image from file path
     electron_1.ipcMain.handle("analyze-image-file", async (event, path) => {
         try {
             const result = await appState.processingHelper.getLLMHelper().analyzeImageFile(path);

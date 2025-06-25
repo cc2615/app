@@ -1,5 +1,4 @@
 "use strict";
-// ProcessingHelper.ts
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -35,7 +34,6 @@ class ProcessingHelper {
                 mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.NO_SCREENSHOTS);
                 return;
             }
-            // Check if last screenshot is an audio file
             const allPaths = this.appState.getScreenshotHelper().getScreenshotQueue();
             const lastPath = allPaths[allPaths.length - 1];
             if (lastPath.endsWith('.mp3') || lastPath.endsWith('.wav')) {
@@ -53,7 +51,6 @@ class ProcessingHelper {
                     return;
                 }
             }
-            // NEW: Handle screenshot as plain text (like audio)
             mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.INITIAL_START);
             this.appState.setView("solutions");
             this.currentProcessingAbortController = new AbortController();
@@ -81,7 +78,6 @@ class ProcessingHelper {
             return;
         }
         else {
-            // Debug mode
             const extraScreenshotQueue = this.appState.getScreenshotHelper().getExtraScreenshotQueue();
             if (extraScreenshotQueue.length === 0) {
                 console.log("No extra screenshots to process");
@@ -91,15 +87,12 @@ class ProcessingHelper {
             mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.DEBUG_START);
             this.currentExtraProcessingAbortController = new AbortController();
             try {
-                // Get problem info and current solution
                 const problemInfo = this.appState.getProblemInfo();
                 if (!problemInfo) {
                     throw new Error("No problem info available");
                 }
-                // Get current solution from state
                 const currentSolution = await this.llmHelper.generateSolution(problemInfo);
                 const currentCode = currentSolution.solution.code;
-                // Debug the solution using vision model
                 const debugResult = await this.llmHelper.debugSolutionWithImages(problemInfo, currentCode, extraScreenshotQueue);
                 this.appState.setHasDebugged(true);
                 mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.DEBUG_SUCCESS, debugResult);
@@ -125,10 +118,8 @@ class ProcessingHelper {
         this.appState.setHasDebugged(false);
     }
     async processAudioBase64(data, mimeType) {
-        // Directly use LLMHelper to analyze inline base64 audio
         return this.llmHelper.analyzeAudioFromBase64(data, mimeType);
     }
-    // Add audio file processing method
     async processAudioFile(filePath) {
         return this.llmHelper.analyzeAudioFile(filePath);
     }

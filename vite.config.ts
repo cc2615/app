@@ -15,4 +15,12 @@ export default defineConfig({
       },
     }),
   ],
-}) 
+  base: './', // This is the key change - use relative paths for Electron
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets'
+  },
+  server: {
+    port: 5173
+  }
+})

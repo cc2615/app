@@ -1,12 +1,15 @@
-import { BrowserWindow, screen } from "electron"
+import { BrowserWindow, screen, app } from "electron"
 import { AppState } from "main"
 import path from "node:path"
 
-const isDev = process.env.NODE_ENV === "development"
+const isDev = process.env.NODE_ENV === "development" || !app.isPackaged
 
 const startUrl = isDev
-  ? "http://localhost:5180"
+  ? "http://localhost:5173"
   : `file://${path.join(__dirname, "../dist/index.html")}`
+
+console.log("Environment:", isDev ? "development" : "production")
+console.log("Loading URL:", startUrl)
 
 export class WindowHelper {
   private mainWindow: BrowserWindow | null = null
@@ -76,12 +79,13 @@ export class WindowHelper {
 
     const windowSettings: Electron.BrowserWindowConstructorOptions = {
       height: 600,
+      width: 400, // Add explicit width
       minWidth: undefined,
       maxWidth: undefined,
       x: this.currentX,
       y: 0,
       webPreferences: {
-        nodeIntegration: true,
+        nodeIntegration: false, // Changed for security
         contextIsolation: true,
         preload: path.join(__dirname, "preload.js")
       },
@@ -96,7 +100,12 @@ export class WindowHelper {
     }
 
     this.mainWindow = new BrowserWindow(windowSettings)
-    // this.mainWindow.webContents.openDevTools()
+    
+    // Only enable DevTools in development
+    // if (!isDev) {
+    //   this.mainWindow.webContents.openDevTools()
+    // }
+    
     this.mainWindow.setContentProtection(false) // toggle screen capture
 
     if (process.platform === "darwin") {
@@ -116,8 +125,24 @@ export class WindowHelper {
     this.mainWindow.setSkipTaskbar(true)
     this.mainWindow.setAlwaysOnTop(true)
 
-    this.mainWindow.loadURL(startUrl).catch((err) => {
-      console.error("Failed to load URL:", err)
+    // Add error handling and success logging
+    this.mainWindow.loadURL(startUrl)
+      .then(() => {
+        console.log("Successfully loaded URL:", startUrl)
+      })
+      .catch((err) => {
+        console.error("Failed to load URL:", startUrl, err)
+        // Fallback: try to load a basic HTML page
+        this.mainWindow?.loadURL('data:text/html,<h1>Error loading app</h1><p>Check console for details</p>')
+      })
+
+    // Add web contents event listeners for debugging
+    this.mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+      console.error('Failed to load:', validatedURL, errorCode, errorDescription)
+    })
+
+    this.mainWindow.webContents.on('did-finish-load', () => {
+      console.log('Finished loading page')
     })
 
     const bounds = this.mainWindow.getBounds()

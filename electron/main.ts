@@ -1,9 +1,32 @@
+// electron/main.ts
 import { app, BrowserWindow } from "electron"
 import { initializeIpcHandlers } from "./ipcHandlers"
 import { WindowHelper } from "./WindowHelper"
 import { ScreenshotHelper } from "./ScreenshotHelper"
 import { ShortcutsHelper } from "./shortcuts"
 import { ProcessingHelper } from "./ProcessingHelper"
+
+// Load environment variables from .env file
+try {
+  const dotenv = require('dotenv')
+  const path = require('path')
+  
+  // Configure dotenv to load from the correct path
+  // In development, load from project root
+  // In production, load from the app's resource directory
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
+  if (isDev) {
+    dotenv.config({ path: path.join(__dirname, '../.env') })
+  } else {
+    dotenv.config({ path: path.join(process.resourcesPath, '.env') })
+  }
+} catch (error) {
+  console.warn('Could not load dotenv:', error instanceof Error ? error.message : String(error))
+  // Set API key directly if dotenv fails
+  if (!process.env.GEMINI_API_KEY) {
+    process.env.GEMINI_API_KEY = 'AIzaSyDmeRWhbi6WMpre0iarWP8WcVt90QYZ-nM'
+  }
+}
 
 export class AppState {
   private static instance: AppState | null = null

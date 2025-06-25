@@ -1,6 +1,6 @@
 # PARADIGM
 
-An AI-powered coding assistant that helps you solve programming problems through screenshots, voice input, and intelligent analysis. PARADIGM combines computer vision, natural language processing, and code generation to provide real-time assistance during coding sessions.
+An AI-powered assistant that helps you solve problems through screenshots, voice input, and intelligent analysis. PARADIGM combines computer vision, natural language processing to provide real-time assistance.
 
 ## Features
 
@@ -22,6 +22,6 @@ An AI-powered coding assistant that helps you solve programming problems through
 ## Development
 
 ```bash
-npm run dev -- --port 5180
+npm run dev
 $env:NODE_ENV="development"; npm run electron:dev
 ```
