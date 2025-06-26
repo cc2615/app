@@ -23,6 +23,7 @@ export interface ElectronAPI {
   analyzeAudioFromBase64: (data: string, mimeType: string) => Promise<{ text: string; timestamp: number }>
   analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
   quitApp: () => Promise<void>
+  aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[]) => Promise<{ text: string }>
 }
 
 declare global {

@@ -181,4 +181,25 @@ Return only the JSON object.`
       throw error;
     }
   }
+
+  public async chatWithHistory(history: { role: 'user' | 'ai', content: string }[]) {
+    // Build a string prompt from the system prompt and chat history
+    let prompt = `System: ${this.systemPrompt}\n`;
+    for (const msg of history) {
+      if (msg.role === 'user') {
+        prompt += `User: ${msg.content}\n`;
+      } else {
+        prompt += `AI: ${msg.content}\n`;
+      }
+    }
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      const text = this.cleanJsonResponse(response.text());
+      return { text };
+    } catch (error) {
+      console.error('Error in chatWithHistory:', error);
+      throw error;
+    }
+  }
 }

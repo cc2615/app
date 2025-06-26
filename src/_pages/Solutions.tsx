@@ -1,5 +1,5 @@
 // Solutions.tsx
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { useQuery, useQueryClient } from "react-query"
 import ReactMarkdown from "react-markdown"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
@@ -18,6 +18,7 @@ import { ProblemStatementData } from "../types/solutions"
 import { AudioResult } from "../types/audio"
 import SolutionCommands from "../components/Solutions/SolutionCommands"
 import Debug from "./Debug"
+import type { ElectronAPI } from '../types/electron.d'
 
 // (Using global ElectronAPI type from src/types/electron.d.ts)
 
@@ -249,6 +250,11 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
   const [tooltipHeight, setTooltipHeight] = useState(0)
 
   const [isResetting, setIsResetting] = useState(false)
+
+  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'ai', content: string }[]>([])
+  const [chatInput, setChatInput] = useState("")
+  const [isChatting, setIsChatting] = useState(false)
+  const [chatLoading, setChatLoading] = useState(false)
 
   const { data: extraScreenshots = [], refetch } = useQuery<Array<{ path: string; preview: string }>, Error>(
     ["extras"],
@@ -528,6 +534,48 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
     return () => unsubscribe()
   }, [queryClient])
 
+  // Robustly reset and initialize chat state whenever a new solution is generated
+  useEffect(() => {
+    if (!solutionData) return;
+    // Always clear chat state first
+    setChatHistory([]);
+    setIsChatting(false);
+    setChatInput("");
+    setChatLoading(false);
+
+    // Use a microtask to ensure state is cleared before initializing
+    setTimeout(() => {
+      // Always show chat when solutionData exists
+      if (chatHistory.length === 0) {
+        if (problemStatementData?.validation_type === 'manual' && problemStatementData?.problem_statement) {
+          setChatHistory([
+            { role: 'user', content: problemStatementData.problem_statement },
+            { role: 'ai', content: solutionData }
+          ]);
+        } else {
+          setChatHistory([{ role: 'ai', content: solutionData }]);
+        }
+      }
+      setIsChatting(true);
+    }, 0);
+  }, [solutionData]);
+
+  // Handler for sending a follow-up chat message
+  const handleSendChat = useCallback(async () => {
+    if (!chatInput.trim()) return;
+    setChatLoading(true);
+    const userMessage = { role: 'user' as const, content: chatInput };
+    setChatHistory((prev) => [...prev, userMessage]);
+    setChatInput("");
+    try {
+      const aiReply = await (window.electronAPI as ElectronAPI).aiChatFollowup([...chatHistory, userMessage]);
+      setChatHistory((prev) => [...prev, { role: 'ai' as const, content: aiReply.text }]);
+    } catch (err: any) {
+      setChatHistory((prev) => [...prev, { role: 'ai' as const, content: 'Error: Could not get AI response.' }]);
+    }
+    setChatLoading(false);
+  }, [chatInput, chatHistory]);
+
   const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
     setIsTooltipVisible(visible)
     setTooltipHeight(height)
@@ -647,6 +695,48 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
               </div>
             </div>
           </div>
+
+          {/* AI Chat (optional) - Always show when solutionData exists */}
+          {(solutionData || (problemStatementData?.validation_type === "manual" && problemStatementData?.problem_statement)) && (
+  <div className="mt-6 bg-black/70 rounded-lg p-4 max-w-lg mx-auto">
+    <h3 className="text-white text-sm font-semibold mb-2">AI Chat (optional)</h3>
+    <div className="space-y-2 max-h-48 overflow-y-auto mb-2">
+      {chatHistory.map((msg, idx) => (
+        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div className={`px-3 py-2 rounded-lg text-xs max-w-[80%] ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-100'}`}>
+            {msg.content}
+          </div>
+        </div>
+      ))}
+      {chatLoading && (
+        <div className="flex justify-start">
+          <div className="px-3 py-2 rounded-lg text-xs bg-gray-800 text-gray-100 animate-pulse">AI is typing...</div>
+        </div>
+      )}
+    </div>
+    <form
+      className="flex gap-2"
+      onSubmit={e => { e.preventDefault(); handleSendChat(); }}
+    >
+      <input
+        className="flex-1 rounded px-2 py-1 text-xs bg-gray-900 text-white border border-gray-700 focus:outline-none"
+        type="text"
+        placeholder="Ask a follow-up... (optional)"
+        value={chatInput}
+        onChange={e => setChatInput(e.target.value)}
+        disabled={chatLoading}
+      />
+      <button
+        type="submit"
+        className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded disabled:opacity-50"
+        disabled={chatLoading || !chatInput.trim()}
+      >
+        Send
+      </button>
+    </form>
+    <div className="text-[10px] text-gray-400 mt-1">You can ignore this and continue, or ask the AI more about its answer.</div>
+  </div>
+)}
         </div>
       )}
     </>

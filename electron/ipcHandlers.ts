@@ -106,4 +106,14 @@ export function initializeIpcHandlers(appState: AppState): void {
   ipcMain.handle("quit-app", () => {
     app.quit()
   })
+
+  ipcMain.handle("ai-chat-followup", async (event, chatHistory) => {
+    try {
+      const result = await appState.processingHelper.getLLMHelper().chatWithHistory(chatHistory);
+      return result;
+    } catch (error) {
+      console.error("Error in ai-chat-followup handler:", error);
+      throw error;
+    }
+  });
 }
