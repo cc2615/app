@@ -5,6 +5,8 @@ import ReactMarkdown from "react-markdown"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
 import remarkGfm from "remark-gfm"
+import ChatUI from "../components/Solutions/ChatUI"
+
 
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue"
 import {
@@ -696,45 +698,15 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
             </div>
           </div>
 
-          {/* AI Chat (optional) - Always show when solutionData exists */}
           {(solutionData || (problemStatementData?.validation_type === "manual" && problemStatementData?.problem_statement)) && (
-  <div className="mt-6 bg-black/70 rounded-lg p-4 max-w-lg mx-auto">
-    <h3 className="text-white text-sm font-semibold mb-2">AI Chat (optional)</h3>
-    <div className="space-y-2 max-h-48 overflow-y-auto mb-2">
-      {chatHistory.map((msg, idx) => (
-        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-          <div className={`px-3 py-2 rounded-lg text-xs max-w-[80%] ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-100'}`}>
-            {msg.content}
-          </div>
-        </div>
-      ))}
-      {chatLoading && (
-        <div className="flex justify-start">
-          <div className="px-3 py-2 rounded-lg text-xs bg-gray-800 text-gray-100 animate-pulse">AI is typing...</div>
-        </div>
-      )}
-    </div>
-    <form
-      className="flex gap-2"
-      onSubmit={e => { e.preventDefault(); handleSendChat(); }}
-    >
-      <input
-        className="flex-1 rounded px-2 py-1 text-xs bg-gray-900 text-white border border-gray-700 focus:outline-none"
-        type="text"
-        placeholder="Ask a follow-up... (optional)"
-        value={chatInput}
-        onChange={e => setChatInput(e.target.value)}
-        disabled={chatLoading}
-      />
-      <button
-        type="submit"
-        className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded disabled:opacity-50"
-        disabled={chatLoading || !chatInput.trim()}
-      >
-        Send
-      </button>
-    </form>
-    <div className="text-[10px] text-gray-400 mt-1">You can ignore this and continue, or ask the AI more about its answer.</div>
+  <div className="mt-6 max-w-lg mx-auto">
+    <ChatUI
+      chatHistory={chatHistory}
+      chatInput={chatInput}
+      setChatInput={setChatInput}
+      chatLoading={chatLoading}
+      handleSendChat={handleSendChat}
+    />
   </div>
 )}
         </div>
