@@ -40,7 +40,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "icons/icon.ico",
@@ -68,7 +70,15 @@
     ],
     "includeSubNodeModules": true
   },
-  "keywords": ["electron", "desktop-app", "AI", "assistant", "computer-vision", "OCR", "productivity"],
+  "keywords": [
+    "electron",
+    "desktop-app",
+    "AI",
+    "assistant",
+    "computer-vision",
+    "OCR",
+    "productivity"
+  ],
   "author": "Christopher Ma <chris.pengfei.ma@gmail.com>, Caden Chen <cadenc.woss@gmail.com>",
   "license": "MIT",
   "description": "An AI-powered assistant that helps you solve problems through screenshots, voice input, and intelligent analysis. PARADIGM combines computer vision, natural language processing to provide real-time assistance.",
