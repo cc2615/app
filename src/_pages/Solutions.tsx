@@ -563,20 +563,52 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
   }, [solutionData]);
 
   // Handler for sending a follow-up chat message
-  const handleSendChat = useCallback(async () => {
-    if (!chatInput.trim()) return;
-    setChatLoading(true);
-    const userMessage = { role: 'user' as const, content: chatInput };
-    setChatHistory((prev) => [...prev, userMessage]);
-    setChatInput("");
-    try {
-      const aiReply = await (window.electronAPI as ElectronAPI).aiChatFollowup([...chatHistory, userMessage]);
-      setChatHistory((prev) => [...prev, { role: 'ai' as const, content: aiReply.text }]);
-    } catch (err: any) {
-      setChatHistory((prev) => [...prev, { role: 'ai' as const, content: 'Error: Could not get AI response.' }]);
-    }
-    setChatLoading(false);
-  }, [chatInput, chatHistory]);
+ const handleSendChat = useCallback(async () => {
+  if (!chatInput.trim()) return;
+
+  setChatLoading(true);
+  const userMessage = { role: 'user' as const, content: chatInput };
+  const contextMessages: { role: 'user' | 'ai'; content: string }[] = [];
+  if (problemStatementData?.validation_type === 'manual' && problemStatementData.problem_statement) {
+    contextMessages.push({
+      role: 'user',
+      content: `This was extracted from the screenshot:\n${problemStatementData.problem_statement}`
+    });
+  }
+
+  // initial solution
+  if (solutionData) {
+    contextMessages.push({
+      role: 'ai',
+      content: `Here is the AI's original solution:\n${solutionData}`
+    });
+  }
+
+  // thoughts / analysis
+  if (thoughtsData?.length) {
+    contextMessages.push({
+      role: 'ai',
+      content: `AI analysis:\n${thoughtsData.map(t => `• ${t}`).join('\n')}`
+    });
+  }
+
+  // combine once-off context, full chat history, and current user message
+  const fullChatHistory = [...contextMessages, ...chatHistory, userMessage];
+
+  setChatHistory(prev => [...prev, userMessage]);
+  setChatInput("");
+
+  try {
+    const aiReply = await (window.electronAPI as ElectronAPI).aiChatFollowup(fullChatHistory);
+    setChatHistory(prev => [...prev, { role: 'ai', content: aiReply.text }]);
+  } catch (err) {
+    console.error("AI chat follow-up failed:", err);
+    setChatHistory(prev => [...prev, { role: 'ai', content: 'Error: Could not get AI response.' }]);
+  }
+
+  setChatLoading(false);
+}, [chatInput, chatHistory, solutionData, thoughtsData, problemStatementData]);
+
 
   const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
     setIsTooltipVisible(visible)
@@ -698,8 +730,8 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
             </div>
           </div>
 
-          {(solutionData || (problemStatementData?.validation_type === "manual" && problemStatementData?.problem_statement)) && (
-  <div className="mt-6 max-w-lg mx-auto">
+{(solutionData || (problemStatementData?.validation_type === "manual" && problemStatementData?.problem_statement)) && (
+  <div className="w-full">
     <ChatUI
       chatHistory={chatHistory}
       chatInput={chatInput}
@@ -709,6 +741,7 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
     />
   </div>
 )}
+
         </div>
       )}
     </>
