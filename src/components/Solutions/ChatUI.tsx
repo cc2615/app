@@ -52,7 +52,7 @@ const renderLatex = (text: string) => {
 };
 
 const formatText = (text: string, key: number) => {
-  // handle code blocks
+  // handle code blocks first
   if (text.includes('```')) {
     const parts = text.split(/(```[\s\S]*?```)/);
     return parts.map((part, i) => {
@@ -73,11 +73,78 @@ const formatText = (text: string, key: number) => {
           </div>
         );
       }
-      return formatInlineElements(part, `${key}-${i}`);
+      return formatParagraphsAndLists(part, `${key}-${i}`);
     });
   }
   
-  return formatInlineElements(text, key);
+  return formatParagraphsAndLists(text, key);
+};
+
+const formatParagraphsAndLists = (text: string, key: number | string) => {
+  // first, split by single line breaks to handle each line
+  const lines = text.split('\n');
+  const result: JSX.Element[] = [];
+  let currentParagraph: string[] = [];
+  
+  const flushParagraph = (pIndex: number) => {
+    if (currentParagraph.length > 0) {
+      const paragraphText = currentParagraph.join(' ').trim();
+      if (paragraphText) {
+        result.push(
+          <div key={`${key}-para-${pIndex}`} className="mb-3">
+            {formatInlineElements(paragraphText, `${key}-para-${pIndex}`)}
+          </div>
+        );
+      }
+      currentParagraph = [];
+    }
+  };
+  
+  lines.forEach((line, lineIndex) => {
+    const trimmedLine = line.trim();
+    
+    // empty line - flush current paragraph
+    if (!trimmedLine) {
+      flushParagraph(lineIndex);
+      return;
+    }
+    
+    // check for numbered list (starts with number followed by period and space)
+    const numberedMatch = trimmedLine.match(/^(\d+)\.\s+(.+)$/);
+    if (numberedMatch) {
+      flushParagraph(lineIndex);
+      result.push(
+        <div key={`${key}-numbered-${lineIndex}`} className="mb-2">
+          {formatInlineElements(trimmedLine, `${key}-numbered-${lineIndex}`)}
+        </div>
+      );
+      return;
+    }
+    
+    // check for bullet points (starts with -, *, or •)
+    const bulletMatch = trimmedLine.match(/^[-*•]\s+(.+)$/);
+    if (bulletMatch) {
+      flushParagraph(lineIndex);
+      result.push(
+        <div key={`${key}-bullet-${lineIndex}`} className="mb-2">
+          {formatInlineElements(trimmedLine, `${key}-bullet-${lineIndex}`)}
+        </div>
+      );
+      return;
+    }
+    
+    // regular text line - add to current paragraph
+    currentParagraph.push(trimmedLine);
+  });
+  
+  // flush any remaining paragraph
+  flushParagraph(lines.length);
+  
+  return result.length > 0 ? result : [
+    <div key={`${key}-fallback`}>
+      {formatInlineElements(text, `${key}-fallback`)}
+    </div>
+  ];
 };
 
 const formatInlineElements = (text: string, key: number | string) => {
@@ -171,7 +238,7 @@ const ChatUI = ({
   if (!showExpanded && chatHistory.length === 0) {
     return (
       <div className="w-full">
-        <div className="flex gap-3 items-center bg-black/30 rounded-full px-4 py-3 border border-white/10 backdrop-blur-md">
+        <div className="flex gap-3 items-center bg-black/70 rounded-full px-4 py-3 border border-white/10 backdrop-blur-md">
           <input
             type="text"
             className="flex-1 bg-transparent border-none text-white text-[12px] placeholder-white/50 focus:outline-none"
@@ -220,7 +287,7 @@ const ChatUI = ({
           <div className="w-2 h-2 bg-white/60 rounded-full mr-3"></div>
           <span className="text-[13px] font-medium">AI Response</span>
         </div>
-        <span className="text-[11px] text-white/60">What is AI Chat?</span>
+        <span className="text-[11px] text-white/60">Gemini Flash 2.0</span>
       </div>
 
       <div className="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20">
@@ -241,10 +308,10 @@ const ChatUI = ({
                   </div>
                 )}
                 <div
-                  className={`text-[12px] leading-relaxed px-3 py-2 rounded-lg ${
+                  className={`text-[12px] leading-relaxed ${
                     message.role === 'user' 
-                      ? 'text-white/90 bg-white/10 ml-auto' 
-                      : 'text-white/95 bg-gray-800 mr-auto'
+                      ? 'text-white/90 bg-white/10 ml-auto px-3 py-2 rounded-lg' 
+                      : 'text-white/95 mr-auto'
                   }`}
                 >
                   <div className="rendered-content">
