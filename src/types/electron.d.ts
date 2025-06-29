@@ -24,7 +24,7 @@ export interface ElectronAPI {
   analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
   analyzeImageFile: (path: string) => Promise<{ text: string; detailed_analysis: any; timestamp: number }>
   quitApp: () => Promise<void>
-  aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[]) => Promise<{ text: string }>
+  aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[], detailedAnalysis?: any) => Promise<{ text: string }>
 }
 
 declare global {

@@ -100,20 +100,114 @@ Be extremely thorough - capture every single visible element, text, button, and 
   }
 
   public async generateSolution(problemInfo: any) {
-    const prompt = `Given this problem: ${JSON.stringify(problemInfo, null, 2)}
+    // Extract detailed analysis if available
+    const detailedAnalysis = problemInfo.input_format?.detailed_analysis || 
+                            problemInfo.ui_elements || 
+                            problemInfo.text_content || 
+                            problemInfo.visual_elements || 
+                            problemInfo.layout_info;
 
-Solve it directly. Provide the solution in JSON format:
+    // Build context from detailed analysis
+    let contextInfo = "";
+    if (detailedAnalysis) {
+      contextInfo = "\n\nDETAILED SCREEN ANALYSIS:\n";
+      
+      // Add UI elements context
+      if (detailedAnalysis.ui_elements && detailedAnalysis.ui_elements.length > 0) {
+        contextInfo += "\nUI ELEMENTS FOUND:\n";
+        detailedAnalysis.ui_elements.forEach((element: any, index: number) => {
+          contextInfo += `- ${element.type}${element.text ? `: "${element.text}"` : ''}${element.state ? ` (${element.state})` : ''}${element.interactive ? ' [Interactive]' : ''}\n`;
+        });
+      }
+
+      // Add text content context
+      if (detailedAnalysis.text_content && detailedAnalysis.text_content.length > 0) {
+        contextInfo += "\nTEXT CONTENT:\n";
+        detailedAnalysis.text_content.forEach((text: any, index: number) => {
+          contextInfo += `- ${text.type} (${text.importance}): "${text.content}"${text.context ? ` - ${text.context}` : ''}\n`;
+        });
+      }
+
+      // Add visual elements context
+      if (detailedAnalysis.visual_elements && detailedAnalysis.visual_elements.length > 0) {
+        contextInfo += "\nVISUAL ELEMENTS:\n";
+        detailedAnalysis.visual_elements.forEach((element: any, index: number) => {
+          contextInfo += `- ${element.type} (${element.purpose})${element.description ? `: ${element.description}` : ''}\n`;
+        });
+      }
+
+      // Add layout information
+      if (detailedAnalysis.layout_info) {
+        contextInfo += "\nLAYOUT INFORMATION:\n";
+        if (detailedAnalysis.layout_info.page_title) {
+          contextInfo += `- Page Title: ${detailedAnalysis.layout_info.page_title}\n`;
+        }
+        if (detailedAnalysis.layout_info.current_view) {
+          contextInfo += `- Current View: ${detailedAnalysis.layout_info.current_view}\n`;
+        }
+        if (detailedAnalysis.layout_info.navigation_elements && detailedAnalysis.layout_info.navigation_elements.length > 0) {
+          contextInfo += `- Navigation: ${detailedAnalysis.layout_info.navigation_elements.join(', ')}\n`;
+        }
+        if (detailedAnalysis.layout_info.form_fields && detailedAnalysis.layout_info.form_fields.length > 0) {
+          contextInfo += `- Form Fields: ${detailedAnalysis.layout_info.form_fields.join(', ')}\n`;
+        }
+        if (detailedAnalysis.layout_info.action_buttons && detailedAnalysis.layout_info.action_buttons.length > 0) {
+          contextInfo += `- Action Buttons: ${detailedAnalysis.layout_info.action_buttons.join(', ')}\n`;
+        }
+      }
+
+      // Add technical details
+      if (detailedAnalysis.technical_details) {
+        contextInfo += "\nTECHNICAL CONTEXT:\n";
+        if (detailedAnalysis.technical_details.platform) {
+          contextInfo += `- Platform: ${detailedAnalysis.technical_details.platform}\n`;
+        }
+        if (detailedAnalysis.technical_details.application) {
+          contextInfo += `- Application: ${detailedAnalysis.technical_details.application}\n`;
+        }
+        if (detailedAnalysis.technical_details.theme) {
+          contextInfo += `- Theme: ${detailedAnalysis.technical_details.theme}\n`;
+        }
+        if (detailedAnalysis.technical_details.responsive !== undefined) {
+          contextInfo += `- Responsive: ${detailedAnalysis.technical_details.responsive ? 'Yes' : 'No'}\n`;
+        }
+      }
+
+      // Add user actions needed
+      if (detailedAnalysis.user_actions_needed && detailedAnalysis.user_actions_needed.length > 0) {
+        contextInfo += "\nUSER ACTIONS NEEDED:\n";
+        detailedAnalysis.user_actions_needed.forEach((action: string, index: number) => {
+          contextInfo += `- ${action}\n`;
+        });
+      }
+
+      // Add overall context
+      if (detailedAnalysis.context) {
+        contextInfo += `\nOVERALL CONTEXT: ${detailedAnalysis.context}\n`;
+      }
+    }
+
+    const prompt = `Given this problem: ${JSON.stringify(problemInfo, null, 2)}${contextInfo}
+
+IMPORTANT: Use the detailed screen analysis above to understand the full context. Consider:
+- What UI elements are available and their states
+- What text content is present and its importance
+- What visual elements might be relevant
+- What actions the user can take
+- The technical context (platform, application, etc.)
+
+Solve it directly, taking into account all the UI elements and context provided. Provide the solution in JSON format:
 {
   "solution": {
     "code": "The actual solution with working steps, not suggestions to use other tools",
     "problem_statement": "Problem restatement (brief)",
-    "context": "Key details only", 
+    "context": "Key details from the screen analysis", 
     "suggested_responses": ["Next step 1", "Next step 2", "Next step 3"],
-    "reasoning": "One sentence justification"
+    "reasoning": "One sentence justification considering the UI context"
   }
 }
 
-For math problems: show the work and final answer. For code: provide working code. Don't suggest external tools - solve it yourself. Return only the JSON object.`
+For math problems: show the work and final answer. For code: provide working code. For UI problems: consider the available elements and their states. Don't suggest external tools - solve it yourself. Return only the JSON object.`
 
     console.log("[LLMHelper] Calling Gemini LLM for solution...");
     try {
@@ -316,9 +410,60 @@ Be extremely thorough - capture every single visible element, text, button, and 
     }
   }
 
-  public async chatWithHistory(history: { role: 'user' | 'ai', content: string }[]) {
-    // Build a string prompt from the system prompt and chat history
-    let prompt = `System: ${this.systemPrompt}\n`;
+  public async chatWithHistory(history: { role: 'user' | 'ai', content: string }[], detailedAnalysis?: any) {
+    // Build context from detailed analysis if available
+    let contextInfo = "";
+    if (detailedAnalysis) {
+      contextInfo = "\n\nSCREEN CONTEXT (for reference):\n";
+      
+      // Add UI elements context
+      if (detailedAnalysis.ui_elements && detailedAnalysis.ui_elements.length > 0) {
+        contextInfo += "\nAvailable UI Elements:\n";
+        detailedAnalysis.ui_elements.forEach((element: any, index: number) => {
+          contextInfo += `- ${element.type}${element.text ? `: "${element.text}"` : ''}${element.state ? ` (${element.state})` : ''}${element.interactive ? ' [Interactive]' : ''}\n`;
+        });
+      }
+
+      // Add text content context
+      if (detailedAnalysis.text_content && detailedAnalysis.text_content.length > 0) {
+        contextInfo += "\nScreen Text Content:\n";
+        detailedAnalysis.text_content.forEach((text: any, index: number) => {
+          if (text.importance === 'high') {
+            contextInfo += `- ${text.type}: "${text.content}"${text.context ? ` - ${text.context}` : ''}\n`;
+          }
+        });
+      }
+
+      // Add layout information
+      if (detailedAnalysis.layout_info) {
+        contextInfo += "\nLayout Context:\n";
+        if (detailedAnalysis.layout_info.page_title) {
+          contextInfo += `- Page: ${detailedAnalysis.layout_info.page_title}\n`;
+        }
+        if (detailedAnalysis.layout_info.action_buttons && detailedAnalysis.layout_info.action_buttons.length > 0) {
+          contextInfo += `- Available Actions: ${detailedAnalysis.layout_info.action_buttons.join(', ')}\n`;
+        }
+      }
+
+      // Add technical context
+      if (detailedAnalysis.technical_details) {
+        contextInfo += "\nTechnical Context:\n";
+        if (detailedAnalysis.technical_details.application) {
+          contextInfo += `- App: ${detailedAnalysis.technical_details.application}\n`;
+        }
+        if (detailedAnalysis.technical_details.platform) {
+          contextInfo += `- Platform: ${detailedAnalysis.technical_details.platform}\n`;
+        }
+      }
+
+      // Add overall context
+      if (detailedAnalysis.context) {
+        contextInfo += `\nOverall Context: ${detailedAnalysis.context}\n`;
+      }
+    }
+
+    // Build a string prompt from the system prompt, context, and chat history
+    let prompt = `System: ${this.systemPrompt}${contextInfo}\n`;
     for (const msg of history) {
       if (msg.role === 'user') {
         prompt += `User: ${msg.content}\n`;
@@ -326,6 +471,7 @@ Be extremely thorough - capture every single visible element, text, button, and 
         prompt += `AI: ${msg.content}\n`;
       }
     }
+    
     try {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;

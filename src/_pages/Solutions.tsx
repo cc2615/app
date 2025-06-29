@@ -600,7 +600,14 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
   setChatInput("");
 
   try {
-    const aiReply = await (window.electronAPI as ElectronAPI).aiChatFollowup(fullChatHistory);
+    // Extract detailed analysis if available
+    const detailedAnalysis = problemStatementData?.input_format?.detailed_analysis || 
+                            problemStatementData?.ui_elements || 
+                            problemStatementData?.text_content || 
+                            problemStatementData?.visual_elements || 
+                            problemStatementData?.layout_info;
+
+    const aiReply = await (window.electronAPI as ElectronAPI).aiChatFollowup(fullChatHistory, detailedAnalysis);
     setChatHistory(prev => [...prev, { role: 'ai', content: aiReply.text }]);
   } catch (err) {
     console.error("AI chat follow-up failed:", err);

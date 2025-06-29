@@ -32,7 +32,7 @@ interface ElectronAPI {
   analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
   analyzeImageFile: (path: string) => Promise<{ text: string; detailed_analysis: any; timestamp: number }>
   quitApp: () => Promise<void>
-  aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[]) => Promise<string>
+  aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[], detailedAnalysis?: any) => Promise<{ text: string }>
 }
 
 export const PROCESSING_EVENTS = {
@@ -167,5 +167,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
   analyzeAudioFile: (path: string) => ipcRenderer.invoke("analyze-audio-file", path),
   analyzeImageFile: (path: string) => ipcRenderer.invoke("analyze-image-file", path),
   quitApp: () => ipcRenderer.invoke("quit-app"),
-  aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[]) => ipcRenderer.invoke("ai-chat-followup", chatHistory)
+  aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[], detailedAnalysis?: any) => ipcRenderer.invoke("ai-chat-followup", chatHistory, detailedAnalysis)
 } as ElectronAPI)
