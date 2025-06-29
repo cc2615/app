@@ -30,7 +30,7 @@ interface ElectronAPI {
   moveWindowRight: () => Promise<void>
   analyzeAudioFromBase64: (data: string, mimeType: string) => Promise<{ text: string; timestamp: number }>
   analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
-  analyzeImageFile: (path: string) => Promise<void>
+  analyzeImageFile: (path: string) => Promise<{ text: string; detailed_analysis: any; timestamp: number }>
   quitApp: () => Promise<void>
   aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[]) => Promise<string>
 }

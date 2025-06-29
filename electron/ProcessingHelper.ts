@@ -62,15 +62,30 @@ export class ProcessingHelper {
       this.currentProcessingAbortController = new AbortController()
       try {
         const imageResult = await this.llmHelper.analyzeImageFile(lastPath);
+        
+        // create enhanced problem info with detailed analysis
         const problemInfo = {
           problem_statement: imageResult.text,
-          input_format: { description: "Generated from screenshot", parameters: [] as any[] },
+          input_format: { 
+            description: "Generated from screenshot", 
+            parameters: [] as any[],
+            detailed_analysis: imageResult.detailed_analysis // Include the detailed analysis
+          },
           output_format: { description: "Generated from screenshot", type: "string", subtype: "text" },
           complexity: { time: "N/A", space: "N/A" },
           test_cases: [] as any[],
           validation_type: "manual",
-          difficulty: "custom"
+          difficulty: "custom",
+          // add new fields for detailed analysis
+          ui_elements: imageResult.detailed_analysis.ui_elements,
+          text_content: imageResult.detailed_analysis.text_content,
+          visual_elements: imageResult.detailed_analysis.visual_elements,
+          layout_info: imageResult.detailed_analysis.layout_info,
+          context: imageResult.detailed_analysis.context,
+          user_actions_needed: imageResult.detailed_analysis.user_actions_needed,
+          technical_details: imageResult.detailed_analysis.technical_details
         };
+        
         mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.PROBLEM_EXTRACTED, problemInfo);
         this.appState.setProblemInfo(problemInfo);
       } catch (error: any) {

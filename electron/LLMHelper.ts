@@ -34,20 +34,65 @@ export class LLMHelper {
     try {
       const imageParts = await Promise.all(imagePaths.map(path => this.fileToGenerativePart(path)))
       
-      const prompt = `Analyze these images and extract the key information in JSON format:
+      const prompt = `Analyze these images comprehensively and extract ALL visible information in JSON format:
+
 {
-  "problem_statement": "The actual problem to solve (be specific and concise)",
-  "context": "Essential details only",
-  "suggested_responses": ["Direct solution", "Alternative approach", "Next action"],
-  "reasoning": "One sentence why"
+  "main_problem": "The primary problem or question to solve",
+  "ui_elements": [
+    {
+      "type": "button|text|input|image|icon|menu|tab|link|form|table|list|chart|graph|video|audio|other",
+      "text": "Visible text content",
+      "position": "top|bottom|left|right|center|top-left|top-right|bottom-left|bottom-right",
+      "description": "What this element does or represents",
+      "interactive": true|false,
+      "state": "enabled|disabled|active|inactive|selected|unselected|hovered|focused|error|success|warning|info"
+    }
+  ],
+  "text_content": [
+    {
+      "content": "Exact text as shown",
+      "type": "heading|paragraph|label|button_text|error_message|success_message|instruction|help_text|placeholder|other",
+      "importance": "high|medium|low",
+      "context": "What this text relates to"
+    }
+  ],
+  "visual_elements": [
+    {
+      "type": "image|icon|logo|chart|graph|diagram|screenshot|video_thumbnail|avatar|banner|other",
+      "description": "What this visual element shows",
+      "purpose": "decorative|functional|informational|branding|navigation|other"
+    }
+  ],
+  "layout_info": {
+    "page_title": "Title of the page/window",
+    "current_view": "What view or section is currently shown",
+    "navigation_elements": ["Menu items", "Breadcrumbs", "Tabs", "Buttons"],
+    "form_fields": ["Input fields present"],
+    "action_buttons": ["Primary actions available"]
+  },
+  "context": "Overall context of what this screen is for",
+  "user_actions_needed": ["What actions the user might need to take"],
+  "technical_details": {
+    "platform": "web|desktop|mobile|tablet|other",
+    "application": "What application this appears to be",
+    "theme": "light|dark|custom",
+    "responsive": true|false
+  }
 }
 
-Return only the JSON object.`
+Be extremely thorough - capture every single visible element, text, button, and detail from all images. Don't miss anything. Return only the JSON object.`
 
       const result = await this.model.generateContent([prompt, ...imageParts])
       const response = await result.response
       const text = this.cleanJsonResponse(response.text())
-      return JSON.parse(text)
+      const parsed = JSON.parse(text)
+      return {
+        problem_statement: parsed.main_problem || "No main problem identified",
+        context: parsed.context || "No context provided",
+        suggested_responses: parsed.user_actions_needed || ["Analyze further", "Take action", "Review details"],
+        reasoning: "Comprehensive analysis of all visible elements",
+        detailed_analysis: parsed
+      }
     } catch (error) {
       console.error("Error extracting problem from images:", error)
       throw error
@@ -92,7 +137,8 @@ For math problems: show the work and final answer. For code: provide working cod
       const prompt = `Original problem: ${JSON.stringify(problemInfo, null, 2)}
 Current approach: ${currentCode}
 
-Analyze the debug images and provide an improved solution:
+Analyze the debug images comprehensively and provide an improved solution. Extract ALL visible information and use it to debug the current solution:
+
 {
   "solution": {
     "code": "Updated solution code",
@@ -100,10 +146,47 @@ Analyze the debug images and provide an improved solution:
     "context": "Relevant details from debug info",
     "suggested_responses": ["Fix action 1", "Fix action 2", "Fix action 3"],
     "reasoning": "What was wrong and how this fixes it"
+  },
+  "debug_analysis": {
+    "ui_elements": [
+      {
+        "type": "button|text|input|image|icon|menu|tab|link|form|table|list|chart|graph|video|audio|other",
+        "text": "Visible text content",
+        "position": "top|bottom|left|right|center|top-left|top-right|bottom-left|bottom-right",
+        "description": "What this element does or represents",
+        "interactive": true|false,
+        "state": "enabled|disabled|active|inactive|selected|unselected|hovered|focused|error|success|warning|info"
+      }
+    ],
+    "text_content": [
+      {
+        "content": "Exact text as shown",
+        "type": "heading|paragraph|label|button_text|error_message|success_message|instruction|help_text|placeholder|other",
+        "importance": "high|medium|low",
+        "context": "What this text relates to"
+      }
+    ],
+    "visual_elements": [
+      {
+        "type": "image|icon|logo|chart|graph|diagram|screenshot|video_thumbnail|avatar|banner|other",
+        "description": "What this visual element shows",
+        "purpose": "decorative|functional|informational|branding|navigation|other"
+      }
+    ],
+    "layout_info": {
+      "page_title": "Title of the page/window",
+      "current_view": "What view or section is currently shown",
+      "navigation_elements": ["Menu items", "Breadcrumbs", "Tabs", "Buttons"],
+      "form_fields": ["Input fields present"],
+      "action_buttons": ["Primary actions available"]
+    },
+    "issues_found": ["List of specific issues identified"],
+    "error_messages": ["Any error messages visible"],
+    "success_indicators": ["Any success indicators visible"]
   }
 }
 
-Return only the JSON object.`
+Be extremely thorough in analyzing the debug images. Capture every detail that might help identify what's wrong with the current solution. Return only the JSON object.`
 
       const result = await this.model.generateContent([prompt, ...imageParts])
       const response = await result.response
@@ -170,12 +253,63 @@ Return only the JSON object.`
         }
       };
       
-      const prompt = `Analyze this image and solve the problem shown. If it's math, solve it. If it's code, fix it. If it's a question, answer it. Be direct and brief - give the solution first, then one short next step if needed.`;
+      const prompt = `Analyze this screenshot comprehensively and extract ALL visible information in JSON format:
+
+{
+  "main_problem": "The primary problem or question to solve",
+  "ui_elements": [
+    {
+      "type": "button|text|input|image|icon|menu|tab|link|form|table|list|chart|graph|video|audio|other",
+      "text": "Visible text content",
+      "position": "top|bottom|left|right|center|top-left|top-right|bottom-left|bottom-right",
+      "description": "What this element does or represents",
+      "interactive": true|false,
+      "state": "enabled|disabled|active|inactive|selected|unselected|hovered|focused|error|success|warning|info"
+    }
+  ],
+  "text_content": [
+    {
+      "content": "Exact text as shown",
+      "type": "heading|paragraph|label|button_text|error_message|success_message|instruction|help_text|placeholder|other",
+      "importance": "high|medium|low",
+      "context": "What this text relates to"
+    }
+  ],
+  "visual_elements": [
+    {
+      "type": "image|icon|logo|chart|graph|diagram|screenshot|video_thumbnail|avatar|banner|other",
+      "description": "What this visual element shows",
+      "purpose": "decorative|functional|informational|branding|navigation|other"
+    }
+  ],
+  "layout_info": {
+    "page_title": "Title of the page/window",
+    "current_view": "What view or section is currently shown",
+    "navigation_elements": ["Menu items", "Breadcrumbs", "Tabs", "Buttons"],
+    "form_fields": ["Input fields present"],
+    "action_buttons": ["Primary actions available"]
+  },
+  "context": "Overall context of what this screen is for",
+  "user_actions_needed": ["What actions the user might need to take"],
+  "technical_details": {
+    "platform": "web|desktop|mobile|tablet|other",
+    "application": "What application this appears to be",
+    "theme": "light|dark|custom",
+    "responsive": true|false
+  }
+}
+
+Be extremely thorough - capture every single visible element, text, button, and detail. Don't miss anything. Return only the JSON object.`;
       
       const result = await this.model.generateContent([prompt, imagePart]);
       const response = await result.response;
-      const text = response.text();
-      return { text, timestamp: Date.now() };
+      const text = this.cleanJsonResponse(response.text());
+      const parsed = JSON.parse(text);
+      return { 
+        text: parsed.main_problem || "No main problem identified", 
+        detailed_analysis: parsed,
+        timestamp: Date.now() 
+      };
     } catch (error) {
       console.error("Error analyzing image file:", error);
       throw error;

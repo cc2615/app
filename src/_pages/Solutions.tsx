@@ -6,7 +6,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
 import remarkGfm from "remark-gfm"
 import ChatUI from "../components/Solutions/ChatUI"
-
+import ScreenAnalysisDisplay from "../components/Solutions/ScreenAnalysisDisplay"
 
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue"
 import {
@@ -257,6 +257,7 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
   const [chatInput, setChatInput] = useState("")
   const [isChatting, setIsChatting] = useState(false)
   const [chatLoading, setChatLoading] = useState(false)
+  const [showScreenAnalysis, setShowScreenAnalysis] = useState(false)
 
   const { data: extraScreenshots = [], refetch } = useQuery<Array<{ path: string; preview: string }>, Error>(
     ["extras"],
@@ -730,18 +731,38 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
             </div>
           </div>
 
-{(solutionData || (problemStatementData?.validation_type === "manual" && problemStatementData?.problem_statement)) && (
-  <div className="w-full">
-    <ChatUI
-      chatHistory={chatHistory}
-      chatInput={chatInput}
-      setChatInput={setChatInput}
-      chatLoading={chatLoading}
-      handleSendChat={handleSendChat}
-    />
-  </div>
-)}
+          {/* screen Analysis Display --- show when detailed analysis is available */}
+          {problemStatementData?.validation_type === "manual" && problemStatementData?.input_format?.detailed_analysis && (
+            <div className="w-full space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[13px] font-medium text-white tracking-wide">
+                  Detailed Screen Analysis
+                </h2>
+                <button
+                  onClick={() => setShowScreenAnalysis(!showScreenAnalysis)}
+                  className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded transition-colors"
+                >
+                  {showScreenAnalysis ? 'Hide Details' : 'Show Details'}
+                </button>
+              </div>
+              <ScreenAnalysisDisplay
+                analysis={problemStatementData.input_format.detailed_analysis}
+                isVisible={showScreenAnalysis}
+              />
+            </div>
+          )}
 
+          {(solutionData || (problemStatementData?.validation_type === "manual" && problemStatementData?.problem_statement)) && (
+            <div className="w-full">
+              <ChatUI
+                chatHistory={chatHistory}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                chatLoading={chatLoading}
+                handleSendChat={handleSendChat}
+              />
+            </div>
+          )}
         </div>
       )}
     </>
