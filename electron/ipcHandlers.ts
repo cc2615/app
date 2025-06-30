@@ -160,4 +160,18 @@ export function initializeIpcHandlers(appState: AppState): void {
       return { success: false, error: error.message }
     }
   })
+
+  // ============ CONTEXT-RELATED IPC HANDLERS ============
+
+  // Refresh context cache
+  ipcMain.handle("refresh-context", async () => {
+    try {
+      appState.processingHelper.refreshContext()
+      console.log("Context cache refreshed successfully")
+      return { success: true }
+    } catch (error: any) {
+      console.error("Error refreshing context:", error)
+      return { success: false, error: error.message }
+    }
+  })
 }

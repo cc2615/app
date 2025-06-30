@@ -23,6 +23,26 @@ export class ProcessingHelper {
       throw new Error("GEMINI_API_KEY not found in environment variables")
     }
     this.llmHelper = new LLMHelper(apiKey)
+    
+    // Set auth token if available
+    this.updateAuthToken()
+  }
+
+  // Update auth token in LLMHelper
+  private updateAuthToken(): void {
+    const authToken = this.appState.getAuthToken()
+    if (authToken) {
+      console.log("[ProcessingHelper] Setting auth token for context fetching")
+      this.llmHelper.setAuthToken(authToken)
+    }
+  }
+
+  // Refresh context cache
+  public refreshContext(): void {
+    console.log("[ProcessingHelper] Refreshing context cache")
+    this.llmHelper.clearContextCache()
+    // Update auth token in case it changed
+    this.updateAuthToken()
   }
 
   public async processScreenshots(): Promise<void> {
@@ -32,6 +52,9 @@ export class ProcessingHelper {
       console.log('[ProcessingHelper] No mainWindow, returning');
       return
     }
+
+    // Update auth token before processing
+    this.updateAuthToken()
 
     const view = this.appState.getView()
     console.log('[ProcessingHelper] Current view:', view);
@@ -174,12 +197,16 @@ export class ProcessingHelper {
   }
 
   public async processAudioBase64(data: string, mimeType: string) {
+    // Update auth token before processing
+    this.updateAuthToken()
     // Directly use LLMHelper to analyze inline base64 audio
     return this.llmHelper.analyzeAudioFromBase64(data, mimeType);
   }
 
   // Add audio file processing method
   public async processAudioFile(filePath: string) {
+    // Update auth token before processing
+    this.updateAuthToken()
     return this.llmHelper.analyzeAudioFile(filePath);
   }
 

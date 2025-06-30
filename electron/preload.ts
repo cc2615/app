@@ -45,6 +45,9 @@ interface ElectronAPI {
   onAuthError: (callback: (data: { error: string }) => void) => () => void
   onAuthStateChanged: (callback: (data: { isAuthenticated: boolean }) => void) => () => void
   onAuthLogout: (callback: () => void) => () => void
+
+  // Context methods
+  refreshContext: () => Promise<{ success: boolean; error?: string }>
 }
 
 export const PROCESSING_EVENTS = {
@@ -227,5 +230,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => {
       ipcRenderer.removeListener(AUTH_EVENTS.AUTH_LOGOUT, subscription)
     }
-  }
+  },
+
+  // ============ CONTEXT-RELATED METHODS ============
+  
+  // Context methods
+  refreshContext: () => ipcRenderer.invoke("refresh-context")
 } as ElectronAPI)

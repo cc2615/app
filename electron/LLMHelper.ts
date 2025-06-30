@@ -3,17 +3,128 @@ import fs from "fs"
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
+interface AIContext {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  color: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  lastUsed: string;
+  isActive: boolean;
+  settings: any;
+}
+
+interface ContextCache {
+  context: string;
+  timestamp: number;
+}
+
 export class LLMHelper {
   private model: GenerativeModel
   private readonly systemPrompt = `You are Wingman AI, a direct problem-solving assistant. When given a task, solve it immediately and concisely. Don't suggest external tools - you ARE the tool. Be brief and actionable.`
+  
+  // Context caching
+  private contextCache: ContextCache | null = null
+  private readonly CONTEXT_CACHE_TTL = 2 * 60 * 1000 // 2 minutes
+  private authToken: string | null = null
 
   constructor(apiKey: string) {
     const genAI = new GoogleGenerativeAI(apiKey)
     this.model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
+    console.log("[LLMHelper] Initialized with Gemini 2.0 Flash")
+  }
+
+  // Set auth token for API calls
+  public setAuthToken(token: string): void {
+    this.authToken = token
+    console.log("[LLMHelper] Auth token set for context fetching")
+  }
+
+  // Clear context cache (for refresh button)
+  public clearContextCache(): void {
+    this.contextCache = null
+    console.log("[LLMHelper] Context cache cleared")
+  }
+
+  // Fetch active context from website backend
+  private async fetchActiveContext(): Promise<string> {
+    if (!this.authToken) {
+      console.log("[LLMHelper] No auth token available for context fetch - continuing without context")
+      return ""
+    }
+
+    try {
+      const backendUrl = process.env.BACKEND_URL || 'https://paradigm-backend.vercel.app'
+      console.log("[LLMHelper] Fetching context from:", `${backendUrl}/api/contexts?isActive=true&limit=1`)
+      console.log("[LLMHelper] About to fetch with token:", this.authToken ? 'TOKEN_SET' : 'NO_TOKEN')
+      console.log("[LLMHelper] Auth header will be:", `Bearer ${this.authToken}`)
+
+      const response = await fetch(`${backendUrl}/api/contexts?isActive=true&limit=1`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.authToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      console.log("[LLMHelper] Context fetch response status:", response.status)
+
+      if (!response.ok) {
+        console.warn("[LLMHelper] Failed to fetch active context:", response.status, response.statusText)
+        return ""
+      }
+
+      const data = await response.json()
+      console.log("[LLMHelper] Context fetch response data:", data)
+      
+      if (data.success && data.data.contexts && data.data.contexts.length > 0) {
+        const context: AIContext = data.data.contexts[0]
+        console.log("[LLMHelper] Fetched active context:", context.title)
+        const contextString = `ACTIVE CONTEXT: ${context.title}\n${context.description}\nCategory: ${context.category}\n\n`
+        console.log("[LLMHelper] Full context string:", contextString)
+        return contextString
+      } else {
+        console.log("[LLMHelper] No active context found")
+        return ""
+      }
+    } catch (error) {
+      console.error("[LLMHelper] Error fetching active context:", error)
+      return ""
+    }
+  }
+
+  // Get active context with caching
+  private async getActiveContext(): Promise<string> {
+    const now = Date.now()
+    
+    // Check cache first
+    if (this.contextCache && (now - this.contextCache.timestamp) < this.CONTEXT_CACHE_TTL) {
+      console.log("[LLMHelper] Using cached context")
+      console.log("[LLMHelper] Cached context string:", this.contextCache.context)
+      return this.contextCache.context
+    }
+
+    // Fetch fresh context
+    console.log("[LLMHelper] Fetching fresh context...")
+    const context = await this.fetchActiveContext()
+    console.log("[LLMHelper] Fresh context string:", context)
+    
+    // Update cache
+    this.contextCache = {
+      context,
+      timestamp: now
+    }
+
+    return context
   }
 
   private async fileToGenerativePart(imagePath: string) {
+    console.log("[LLMHelper] Converting image to generative part:", imagePath)
     const imageData = await fs.promises.readFile(imagePath)
+    console.log("[LLMHelper] Image data read, size:", imageData.length, "bytes")
     return {
       inlineData: {
         data: imageData.toString("base64"),
@@ -31,8 +142,11 @@ export class LLMHelper {
   }
 
   public async extractProblemFromImages(imagePaths: string[]) {
+    console.log("[LLMHelper] Starting extractProblemFromImages with", imagePaths.length, "images")
     try {
+      console.log("[LLMHelper] Converting images to generative parts...")
       const imageParts = await Promise.all(imagePaths.map(path => this.fileToGenerativePart(path)))
+      console.log("[LLMHelper] Image parts created successfully")
       
       const prompt = `Analyze these images comprehensively and extract ALL visible information in JSON format:
 
@@ -82,10 +196,21 @@ export class LLMHelper {
 
 Be extremely thorough - capture every single visible element, text, button, and detail from all images. Don't miss anything. Return only the JSON object.`
 
-      const result = await this.model.generateContent([prompt, ...imageParts])
+      console.log("[LLMHelper] Sending request to Gemini for image analysis...")
+      const fullPrompt = [prompt, ...imageParts]
+      console.log("[LLMHelper] Full prompt (with context) for Gemini:", fullPrompt)
+      const result = await this.model.generateContent(fullPrompt)
+      console.log("[LLMHelper] Received response from Gemini for image analysis")
+      
       const response = await result.response
+      console.log("[LLMHelper] Extracted response text")
+      
       const text = this.cleanJsonResponse(response.text())
+      console.log("[LLMHelper] Cleaned JSON response, parsing...")
+      
       const parsed = JSON.parse(text)
+      console.log("[LLMHelper] Successfully parsed JSON response")
+      
       return {
         problem_statement: parsed.main_problem || "No main problem identified",
         context: parsed.context || "No context provided",
@@ -94,12 +219,19 @@ Be extremely thorough - capture every single visible element, text, button, and 
         detailed_analysis: parsed
       }
     } catch (error) {
-      console.error("Error extracting problem from images:", error)
+      console.error("[LLMHelper] Error in extractProblemFromImages:", error)
       throw error
     }
   }
 
   public async generateSolution(problemInfo: any) {
+    console.log("[LLMHelper] Starting generateSolution...")
+    
+    // Get active context
+    console.log("[LLMHelper] Fetching active context...")
+    const activeContext = await this.getActiveContext()
+    console.log("[LLMHelper] Active context fetched, length:", activeContext.length)
+    
     // Extract detailed analysis if available
     const detailedAnalysis = problemInfo.input_format?.detailed_analysis || 
                             problemInfo.ui_elements || 
@@ -107,6 +239,7 @@ Be extremely thorough - capture every single visible element, text, button, and 
                             problemInfo.visual_elements || 
                             problemInfo.layout_info;
 
+    console.log("[LLMHelper] Building context info from detailed analysis...")
     // Build context from detailed analysis
     let contextInfo = "";
     if (detailedAnalysis) {
@@ -187,7 +320,9 @@ Be extremely thorough - capture every single visible element, text, button, and 
       }
     }
 
-    const prompt = `Given this problem: ${JSON.stringify(problemInfo, null, 2)}${contextInfo}
+    const prompt = `${activeContext}${this.systemPrompt}
+
+Given this problem: ${JSON.stringify(problemInfo, null, 2)}${contextInfo}
 
 IMPORTANT: Use the detailed screen analysis above to understand the full context. Consider:
 - What UI elements are available and their states
@@ -210,6 +345,7 @@ Solve it directly, taking into account all the UI elements and context provided.
 For math problems: show the work and final answer. For code: provide working code. For UI problems: consider the available elements and their states. Don't suggest external tools - solve it yourself. Return only the JSON object.`
 
     console.log("[LLMHelper] Calling Gemini LLM for solution...");
+    console.log("[LLMHelper] Full prompt (with context) for Gemini:", prompt);
     try {
       const result = await this.model.generateContent(prompt)
       console.log("[LLMHelper] Gemini LLM returned result.");
@@ -225,10 +361,21 @@ For math problems: show the work and final answer. For code: provide working cod
   }
 
   public async debugSolutionWithImages(problemInfo: any, currentCode: string, debugImagePaths: string[]) {
+    console.log("[LLMHelper] Starting debugSolutionWithImages with", debugImagePaths.length, "debug images")
+    
+    // Get active context
+    console.log("[LLMHelper] Fetching active context for debug...")
+    const activeContext = await this.getActiveContext()
+    console.log("[LLMHelper] Active context fetched for debug")
+    
     try {
+      console.log("[LLMHelper] Converting debug images to generative parts...")
       const imageParts = await Promise.all(debugImagePaths.map(path => this.fileToGenerativePart(path)))
+      console.log("[LLMHelper] Debug image parts created successfully")
       
-      const prompt = `Original problem: ${JSON.stringify(problemInfo, null, 2)}
+      const prompt = `${activeContext}${this.systemPrompt}
+
+Original problem: ${JSON.stringify(problemInfo, null, 2)}
 Current approach: ${currentCode}
 
 Analyze the debug images comprehensively and provide an improved solution. Extract ALL visible information and use it to debug the current solution:
@@ -282,41 +429,72 @@ Analyze the debug images comprehensively and provide an improved solution. Extra
 
 Be extremely thorough in analyzing the debug images. Capture every detail that might help identify what's wrong with the current solution. Return only the JSON object.`
 
-      const result = await this.model.generateContent([prompt, ...imageParts])
+      console.log("[LLMHelper] Sending debug request to Gemini...")
+      const fullPrompt = [prompt, ...imageParts]
+      console.log("[LLMHelper] Full prompt (with context) for Gemini:", fullPrompt)
+      const result = await this.model.generateContent(fullPrompt)
+      console.log("[LLMHelper] Received debug response from Gemini")
+      
       const response = await result.response
       const text = this.cleanJsonResponse(response.text())
       const parsed = JSON.parse(text)
       console.log("[LLMHelper] Parsed debug LLM response:", parsed)
       return parsed
     } catch (error) {
-      console.error("Error debugging solution with images:", error)
+      console.error("[LLMHelper] Error in debugSolutionWithImages:", error)
       throw error
     }
   }
 
   public async analyzeAudioFile(audioPath: string) {
+    console.log("[LLMHelper] Starting analyzeAudioFile for:", audioPath)
+    
+    // Get active context
+    console.log("[LLMHelper] Fetching active context for audio...")
+    const activeContext = await this.getActiveContext()
+    console.log("[LLMHelper] Active context fetched for audio")
+    
     try {
+      console.log("[LLMHelper] Reading audio file...")
       const audioData = await fs.promises.readFile(audioPath);
+      console.log("[LLMHelper] Audio file read successfully, size:", audioData.length, "bytes")
+      
       const audioPart = {
         inlineData: {
           data: audioData.toString("base64"),
           mimeType: "audio/mp3"
         }
       };
+      console.log("[LLMHelper] Audio converted to base64")
       
-      const prompt = `Listen to this audio and respond directly. What was said and what should I do next? Keep it brief and actionable.`;
-      
+      const prompt = `${activeContext}${this.systemPrompt}
+
+Listen to this audio and respond directly. What was said and what should I do next? Keep it brief and actionable.`;
+
+      console.log("[LLMHelper] Sending audio request to Gemini...")
+      console.log("[LLMHelper] Full prompt (with context) for Gemini:", [prompt, audioPart])
       const result = await this.model.generateContent([prompt, audioPart]);
+      console.log("[LLMHelper] Received audio response from Gemini")
+      
       const response = await result.response;
       const text = response.text();
+      console.log("[LLMHelper] Audio analysis completed")
+      
       return { text, timestamp: Date.now() };
     } catch (error) {
-      console.error("Error analyzing audio file:", error);
+      console.error("[LLMHelper] Error in analyzeAudioFile:", error);
       throw error;
     }
   }
 
   public async analyzeAudioFromBase64(data: string, mimeType: string) {
+    console.log("[LLMHelper] Starting analyzeAudioFromBase64, mimeType:", mimeType)
+    
+    // Get active context
+    console.log("[LLMHelper] Fetching active context for base64 audio...")
+    const activeContext = await this.getActiveContext()
+    console.log("[LLMHelper] Active context fetched for base64 audio")
+    
     try {
       const audioPart = {
         inlineData: {
@@ -324,30 +502,49 @@ Be extremely thorough in analyzing the debug images. Capture every detail that m
           mimeType
         }
       };
+      console.log("[LLMHelper] Base64 audio part created")
       
-      const prompt = `Listen to this audio and solve any problem mentioned. If it's a question, answer it directly. If it's a task, complete it. Be brief - give the solution, not suggestions to use other tools.`;
-      
+      const prompt = `${activeContext}${this.systemPrompt}
+
+Listen to this audio and solve any problem mentioned. If it's a question, answer it directly. If it's a task, complete it. Be brief - give the solution, not suggestions to use other tools.`;
+
+      console.log("[LLMHelper] Sending base64 audio request to Gemini...")
+      console.log("[LLMHelper] Full prompt (with context) for Gemini:", [prompt, audioPart])
       const result = await this.model.generateContent([prompt, audioPart]);
+      console.log("[LLMHelper] Received base64 audio response from Gemini")
+      
       const response = await result.response;
       const text = response.text();
+      console.log("[LLMHelper] Base64 audio analysis completed")
+      
       return { text, timestamp: Date.now() };
     } catch (error) {
-      console.error("Error analyzing audio from base64:", error);
+      console.error("[LLMHelper] Error in analyzeAudioFromBase64:", error);
       throw error;
     }
   }
 
   public async analyzeImageFile(imagePath: string) {
-    try {
+    console.log("[LLMHelper] Starting analyzeImageFile for:", imagePath)
+  
+    // Get active context for this analysis too
+    console.log("[LLMHelper] Fetching active context for image analysis...")
+    const activeContext = await this.getActiveContext()
+    console.log("[LLMHelper] Active context fetched for image analysis")
+      try {
+      console.log("[LLMHelper] Reading image file...")
       const imageData = await fs.promises.readFile(imagePath);
+      console.log("[LLMHelper] Image file read successfully, size:", imageData.length, "bytes")
+      
       const imagePart = {
         inlineData: {
           data: imageData.toString("base64"),
           mimeType: "image/png"
         }
       };
+      console.log("[LLMHelper] Image converted to base64")
       
-      const prompt = `Analyze this screenshot comprehensively and extract ALL visible information in JSON format:
+      const prompt = `${activeContext}Analyze this screenshot comprehensively and extract ALL visible information in JSON format:
 
 {
   "main_problem": "The primary problem or question to solve",
@@ -394,26 +591,44 @@ Be extremely thorough in analyzing the debug images. Capture every detail that m
 }
 
 Be extremely thorough - capture every single visible element, text, button, and detail. Don't miss anything. Return only the JSON object.`;
-      
+
+      console.log("[LLMHelper] Sending request to Gemini for single image analysis...")
+      console.log("[LLMHelper] Full prompt (with context) for Gemini:", [prompt, imagePart])
       const result = await this.model.generateContent([prompt, imagePart]);
+      console.log("[LLMHelper] Received response from Gemini for single image analysis")
+      
       const response = await result.response;
+      console.log("[LLMHelper] Extracted response text from Gemini")
+      
       const text = this.cleanJsonResponse(response.text());
+      console.log("[LLMHelper] Cleaned JSON response, parsing...")
+      
       const parsed = JSON.parse(text);
+      console.log("[LLMHelper] Successfully parsed JSON response for image analysis")
+      
       return { 
         text: parsed.main_problem || "No main problem identified", 
         detailed_analysis: parsed,
         timestamp: Date.now() 
       };
     } catch (error) {
-      console.error("Error analyzing image file:", error);
+      console.error("[LLMHelper] Error in analyzeImageFile:", error);
       throw error;
     }
   }
 
   public async chatWithHistory(history: { role: 'user' | 'ai', content: string }[], detailedAnalysis?: any) {
+    console.log("[LLMHelper] Starting chatWithHistory with", history.length, "messages")
+    
+    // Get active context
+    console.log("[LLMHelper] Fetching active context for chat...")
+    const activeContext = await this.getActiveContext()
+    console.log("[LLMHelper] Active context fetched for chat")
+    
     // Build context from detailed analysis if available
     let contextInfo = "";
     if (detailedAnalysis) {
+      console.log("[LLMHelper] Building context info from detailed analysis for chat...")
       contextInfo = "\n\nSCREEN CONTEXT (for reference):\n";
       
       // Add UI elements context
@@ -462,8 +677,8 @@ Be extremely thorough - capture every single visible element, text, button, and 
       }
     }
 
-    // Build a string prompt from the system prompt, context, and chat history
-    let prompt = `System: ${this.systemPrompt}${contextInfo}\n`;
+    // Build a string prompt from the active context, system prompt, context, and chat history
+    let prompt = `${activeContext}System: ${this.systemPrompt}${contextInfo}\n`;
     for (const msg of history) {
       if (msg.role === 'user') {
         prompt += `User: ${msg.content}\n`;
@@ -473,12 +688,18 @@ Be extremely thorough - capture every single visible element, text, button, and 
     }
     
     try {
+      console.log("[LLMHelper] Sending chat request to Gemini...")
+      console.log("[LLMHelper] Full prompt (with context) for Gemini:", prompt)
       const result = await this.model.generateContent(prompt);
+      console.log("[LLMHelper] Received chat response from Gemini")
+      
       const response = await result.response;
       const text = this.cleanJsonResponse(response.text());
+      console.log("[LLMHelper] Chat analysis completed")
+      
       return { text };
     } catch (error) {
-      console.error('Error in chatWithHistory:', error);
+      console.error('[LLMHelper] Error in chatWithHistory:', error);
       throw error;
     }
   }
