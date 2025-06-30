@@ -345,6 +345,10 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
           setIsResetting(false)
         }, 0)
       }),
+      window.electronAPI.onProblemExtracted((data) => {
+        console.log('[Solutions] Received problem-extracted:', data);
+        setProblemStatementData(data);
+      }),
       window.electronAPI.onSolutionStart(async () => {
         // Reset UI state for a new solution
         setSolutionData(null)

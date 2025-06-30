@@ -26,25 +26,34 @@ export class ProcessingHelper {
   }
 
   public async processScreenshots(): Promise<void> {
+    console.log('[ProcessingHelper] processScreenshots called');
     const mainWindow = this.appState.getMainWindow()
-    if (!mainWindow) return
+    if (!mainWindow) {
+      console.log('[ProcessingHelper] No mainWindow, returning');
+      return
+    }
 
     const view = this.appState.getView()
+    console.log('[ProcessingHelper] Current view:', view);
 
     if (view === "queue") {
       const screenshotQueue = this.appState.getScreenshotHelper().getScreenshotQueue()
+      console.log('[ProcessingHelper] Screenshot queue:', screenshotQueue);
       if (screenshotQueue.length === 0) {
         mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.NO_SCREENSHOTS)
+        console.log('[ProcessingHelper] No screenshots, returning');
         return
       }
 
       // Check if last screenshot is an audio file
       const allPaths = this.appState.getScreenshotHelper().getScreenshotQueue();
       const lastPath = allPaths[allPaths.length - 1];
+      console.log('[ProcessingHelper] Last path:', lastPath);
       if (lastPath.endsWith('.mp3') || lastPath.endsWith('.wav')) {
         mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.INITIAL_START);
         this.appState.setView('solutions');
         try {
+          console.log('[ProcessingHelper] Calling analyzeAudioFile');
           const audioResult = await this.llmHelper.analyzeAudioFile(lastPath);
           mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.PROBLEM_EXTRACTED, audioResult);
           this.appState.setProblemInfo({ problem_statement: audioResult.text, input_format: {}, output_format: {}, constraints: [], test_cases: [] });
@@ -61,8 +70,9 @@ export class ProcessingHelper {
       this.appState.setView("solutions")
       this.currentProcessingAbortController = new AbortController()
       try {
+        console.log('[ProcessingHelper] Calling analyzeImageFile');
         const imageResult = await this.llmHelper.analyzeImageFile(lastPath);
-        
+        console.log('[ProcessingHelper] analyzeImageFile result:', imageResult);
         // create enhanced problem info with detailed analysis
         const problemInfo = {
           problem_statement: imageResult.text,
@@ -85,7 +95,7 @@ export class ProcessingHelper {
           user_actions_needed: imageResult.detailed_analysis.user_actions_needed,
           technical_details: imageResult.detailed_analysis.technical_details
         };
-        
+        console.log('[ProcessingHelper] Created problemInfo:', problemInfo);
         mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.PROBLEM_EXTRACTED, problemInfo);
         this.appState.setProblemInfo(problemInfo);
       } catch (error: any) {
@@ -98,6 +108,7 @@ export class ProcessingHelper {
     } else {
       // Debug mode
       const extraScreenshotQueue = this.appState.getScreenshotHelper().getExtraScreenshotQueue()
+      console.log('[ProcessingHelper] Extra screenshot queue:', extraScreenshotQueue);
       if (extraScreenshotQueue.length === 0) {
         console.log("No extra screenshots to process")
         mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.NO_SCREENSHOTS)
@@ -110,20 +121,25 @@ export class ProcessingHelper {
       try {
         // Get problem info and current solution
         const problemInfo = this.appState.getProblemInfo()
+        console.log('[ProcessingHelper] Problem info:', problemInfo);
         if (!problemInfo) {
           throw new Error("No problem info available")
         }
 
         // Get current solution from state
+        console.log('[ProcessingHelper] Calling generateSolution');
         const currentSolution = await this.llmHelper.generateSolution(problemInfo)
+        console.log('[ProcessingHelper] generateSolution result:', currentSolution);
         const currentCode = currentSolution.solution.code
 
         // Debug the solution using vision model
+        console.log('[ProcessingHelper] Calling debugSolutionWithImages');
         const debugResult = await this.llmHelper.debugSolutionWithImages(
           problemInfo,
           currentCode,
           extraScreenshotQueue
         )
+        console.log('[ProcessingHelper] debugSolutionWithImages result:', debugResult);
 
         this.appState.setHasDebugged(true)
         mainWindow.webContents.send(
