@@ -25,6 +25,7 @@ export interface ElectronAPI {
   analyzeImageFile: (path: string) => Promise<{ text: string; detailed_analysis: any; timestamp: number }>
   quitApp: () => Promise<void>
   aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[], detailedAnalysis?: any) => Promise<{ text: string }>
+  refreshContext: () => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {
