@@ -33,6 +33,18 @@ interface ElectronAPI {
   analyzeImageFile: (path: string) => Promise<{ text: string; detailed_analysis: any; timestamp: number }>
   quitApp: () => Promise<void>
   aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[], detailedAnalysis?: any) => Promise<{ text: string }>
+
+  // Auth-related methods
+  getAuthState: () => Promise<{ isAuthenticated: boolean; user: any }>
+  openLoginUrl: () => Promise<{ success: boolean; error?: string }>
+  openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<{ success: boolean; error?: string }>
+  
+  // Auth event listeners
+  onAuthSuccess: (callback: (data: { user: any; token: string }) => void) => () => void
+  onAuthError: (callback: (data: { error: string }) => void) => () => void
+  onAuthStateChanged: (callback: (data: { isAuthenticated: boolean }) => void) => () => void
+  onAuthLogout: (callback: () => void) => () => void
 }
 
 export const PROCESSING_EVENTS = {
@@ -50,6 +62,13 @@ export const PROCESSING_EVENTS = {
   DEBUG_START: "debug-start",
   DEBUG_SUCCESS: "debug-success",
   DEBUG_ERROR: "debug-error"
+} as const
+
+export const AUTH_EVENTS = {
+  AUTH_SUCCESS: "auth-success",
+  AUTH_ERROR: "auth-error",
+  AUTH_LOGOUT: "auth-logout",
+  AUTH_STATE_CHANGED: "auth-state-changed"
 } as const
 
 // Expose the Electron API to the renderer process
@@ -167,5 +186,46 @@ contextBridge.exposeInMainWorld("electronAPI", {
   analyzeAudioFile: (path: string) => ipcRenderer.invoke("analyze-audio-file", path),
   analyzeImageFile: (path: string) => ipcRenderer.invoke("analyze-image-file", path),
   quitApp: () => ipcRenderer.invoke("quit-app"),
-  aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[], detailedAnalysis?: any) => ipcRenderer.invoke("ai-chat-followup", chatHistory, detailedAnalysis)
+  aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[], detailedAnalysis?: any) => ipcRenderer.invoke("ai-chat-followup", chatHistory, detailedAnalysis),
+
+  // ============ AUTH-RELATED METHODS ============
+  
+  // Auth IPC methods
+  getAuthState: () => ipcRenderer.invoke("get-auth-state"),
+  openLoginUrl: () => ipcRenderer.invoke("open-login-url"),
+  openExternalUrl: (url: string) => ipcRenderer.invoke("open-external-url", url),
+  logout: () => ipcRenderer.invoke("logout"),
+
+  // Auth event listeners
+  onAuthSuccess: (callback: (data: { user: any; token: string }) => void) => {
+    const subscription = (_: any, data: { user: any; token: string }) => callback(data)
+    ipcRenderer.on(AUTH_EVENTS.AUTH_SUCCESS, subscription)
+    return () => {
+      ipcRenderer.removeListener(AUTH_EVENTS.AUTH_SUCCESS, subscription)
+    }
+  },
+
+  onAuthError: (callback: (data: { error: string }) => void) => {
+    const subscription = (_: any, data: { error: string }) => callback(data)
+    ipcRenderer.on(AUTH_EVENTS.AUTH_ERROR, subscription)
+    return () => {
+      ipcRenderer.removeListener(AUTH_EVENTS.AUTH_ERROR, subscription)
+    }
+  },
+
+  onAuthStateChanged: (callback: (data: { isAuthenticated: boolean }) => void) => {
+    const subscription = (_: any, data: { isAuthenticated: boolean }) => callback(data)
+    ipcRenderer.on(AUTH_EVENTS.AUTH_STATE_CHANGED, subscription)
+    return () => {
+      ipcRenderer.removeListener(AUTH_EVENTS.AUTH_STATE_CHANGED, subscription)
+    }
+  },
+
+  onAuthLogout: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on(AUTH_EVENTS.AUTH_LOGOUT, subscription)
+    return () => {
+      ipcRenderer.removeListener(AUTH_EVENTS.AUTH_LOGOUT, subscription)
+    }
+  }
 } as ElectronAPI)

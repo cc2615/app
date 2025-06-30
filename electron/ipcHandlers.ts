@@ -116,4 +116,48 @@ export function initializeIpcHandlers(appState: AppState): void {
       throw error;
     }
   });
+
+  // ============ AUTH-RELATED IPC HANDLERS ============
+
+  // Get current auth state
+  ipcMain.handle("get-auth-state", async () => {
+    return {
+      isAuthenticated: appState.isUserAuthenticated(),
+      user: appState.getUserData()
+    }
+  })
+
+  // Open login URL in browser
+  ipcMain.handle("open-login-url", async () => {
+    try {
+      await appState.openLoginUrl()
+      return { success: true }
+    } catch (error: any) {
+      console.error("Error opening login URL:", error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // Logout user
+  ipcMain.handle("logout", async () => {
+    try {
+      await appState.logout()
+      return { success: true }
+    } catch (error: any) {
+      console.error("Error during logout:", error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // Open external URL (generic handler for browser opening)
+  ipcMain.handle("open-external-url", async (event, url: string) => {
+    try {
+      const { shell } = require('electron')
+      await shell.openExternal(url)
+      return { success: true }
+    } catch (error: any) {
+      console.error("Error opening external URL:", error)
+      return { success: false, error: error.message }
+    }
+  })
 }
