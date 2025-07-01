@@ -78,6 +78,7 @@ export class WindowHelper {
     this.currentX = 0 // Start at the left
 
     const windowSettings: Electron.BrowserWindowConstructorOptions = {
+      title: "Paradigm",
       height: 600,
       width: 400, // Add explicit width
       minWidth: undefined,

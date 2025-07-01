@@ -72,7 +72,7 @@ if (process.platform === 'win32') {
     const commandKey = `${protocolKey}\\shell\\open\\command`
     
     // Add protocol key
-    execSync(`reg add "${protocolKey}" /ve /d "URL:Custom Protocol" /f`, { stdio: 'ignore' })
+    execSync(`reg add "${protocolKey}" /ve /d "Paradigm" /f`, { stdio: 'ignore' })
     
     // Add URL Protocol value  
     execSync(`reg add "${protocolKey}" /v "URL Protocol" /d "" /f`, { stdio: 'ignore' })
