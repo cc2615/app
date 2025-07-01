@@ -200,12 +200,13 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
           </div>
         </div>
 
-        {/* Audio Result Display */}
-        {audioResult && (
-          <div className="mt-2 p-2 bg-white/10 rounded text-white text-xs max-w-md">
-            <span className="font-semibold">Audio Result:</span> {audioResult}
-          </div>
-        )}
+      {/* Audio Result Display */}
+      {audioResult && (
+        <div className="mt-2 backdrop-blur-md bg-black/60 rounded-lg border border-white/10 p-3 max-w-md">
+          <span className="font-semibold text-white text-xs">Audio Result:</span> 
+          <span className="text-white/90 text-xs ml-1">{audioResult}</span>
+        </div>
+      )}
       </div>
     </div>
   )

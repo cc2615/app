@@ -22,6 +22,26 @@ interface ContextCache {
   timestamp: number;
 }
 
+interface ActivitySession {
+  id?: string;
+  title: string;
+  description: string;
+  type: string;
+  transcript?: string;
+  userId?: string;
+  status?: 'processing' | 'completed';
+  isStarred?: boolean;
+  timestamp?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface AudioAnalysisResult {
+  text: string;
+  timestamp: number;
+  activityId?: string;
+}
+
 export class LLMHelper {
   private model: GenerativeModel
   private readonly systemPrompt = `You are Wingman AI, a direct problem-solving assistant. When given a task, solve it immediately and concisely. Don't suggest external tools - you ARE the tool. Be brief and actionable.`
@@ -102,6 +122,95 @@ export class LLMHelper {
     }
 
     return context
+  }
+
+    // Create activity via API
+  private async createActivity(activityData: Omit<ActivitySession, 'id' | 'userId' | 'timestamp' | 'createdAt' | 'updatedAt'>): Promise<string | null> {
+    if (!this.authToken) {
+      console.warn("[LLMHelper] No auth token available for activity creation")
+      return null
+    }
+
+    try {
+      const backendUrl = process.env.BACKEND_URL || 'https://paradigm-backend.vercel.app'
+
+      const response = await fetch(`${backendUrl}/api/activities`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(activityData)
+      })
+
+      if (!response.ok) {
+        console.error("[LLMHelper] Failed to create activity:", response.status, response.statusText)
+        return null
+      }
+
+      const data = await response.json()
+      
+      if (data.success && data.data) {
+        console.log("[LLMHelper] Activity created successfully:", data.data.id)
+        return data.data.id
+      } else {
+        console.error("[LLMHelper] Activity creation failed:", data.error)
+        return null
+      }
+    } catch (error) {
+      console.error("[LLMHelper] Error creating activity:", error)
+      return null
+    }
+  }
+
+  // Extract activity metadata from audio text
+  private async extractActivityMetadata(audioText: string): Promise<{ title: string; type: string; description: string }> {
+    try {
+      const prompt = `Analyze this audio transcript and extract activity metadata. Return JSON only:
+
+  {
+    "title": "Short descriptive title (max 50 chars)",
+    "type": "ideas|brainstorm|meeting|note|task|other",
+    "description": "Brief summary of the main content (max 200 chars)"
+  }
+
+  Audio transcript: "${audioText}"
+
+  Rules:
+  - Title should be concise and descriptive
+  - Type should match the content (ideas for creative thoughts, brainstorm for collaborative thinking, meeting for discussions, note for information, task for action items)
+  - Description should summarize key points
+  - Keep everything concise and actionable
+
+  Return only the JSON object.`
+
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      const text = this.cleanJsonResponse(response.text())
+      
+      try {
+        const parsed = JSON.parse(text)
+        return {
+          title: parsed.title || "Audio Recording",
+          type: parsed.type || "note",
+          description: parsed.description || "Audio recording analysis"
+        }
+      } catch (parseError) {
+        console.warn("[LLMHelper] Failed to parse activity metadata, using defaults")
+        return {
+          title: "Audio Recording",
+          type: "note",
+          description: audioText.substring(0, 200) + (audioText.length > 200 ? "..." : "")
+        }
+      }
+    } catch (error) {
+      console.error("[LLMHelper] Error extracting activity metadata:", error)
+      return {
+        title: "Audio Recording",
+        type: "note",
+        description: audioText.substring(0, 200) + (audioText.length > 200 ? "..." : "")
+      }
+    }
   }
 
   private async fileToGenerativePart(imagePath: string) {
@@ -399,7 +508,7 @@ Be extremely thorough in analyzing the debug images. Capture every detail that m
     }
   }
 
-  public async analyzeAudioFile(audioPath: string) {
+  public async analyzeAudioFile(audioPath: string): Promise<AudioAnalysisResult> {
     try {
       const activeContext = await this.getActiveContext()
       
@@ -421,14 +530,33 @@ Listen to this audio and respond directly. If it's a problem/question, solve it 
       const response = await result.response;
       const text = response.text();
       
-      return { text, timestamp: Date.now() };
+      // Create activity automatically
+      let activityId: string | null = null;
+      try {
+        const metadata = await this.extractActivityMetadata(text);
+        activityId = await this.createActivity({
+          title: metadata.title,
+          description: metadata.description,
+          type: metadata.type,
+          transcript: text,
+          status: 'completed'
+        });
+      } catch (activityError) {
+        console.error("[LLMHelper] Failed to create activity for audio file:", activityError);
+      }
+      
+      return { 
+        text, 
+        timestamp: Date.now(),
+        activityId: activityId || undefined
+      };
     } catch (error) {
       console.error("[LLMHelper] Error in analyzeAudioFile:", error);
       throw error;
     }
   }
 
-  public async analyzeAudioFromBase64(data: string, mimeType: string) {
+  public async analyzeAudioFromBase64(data: string, mimeType: string): Promise<AudioAnalysisResult> {
     try {
       const activeContext = await this.getActiveContext()
       
@@ -448,13 +576,32 @@ Listen to this audio and solve any problem mentioned. If it's a question, answer
       const response = await result.response;
       const text = response.text();
       
-      return { text, timestamp: Date.now() };
+      // Create activity automatically
+      let activityId: string | null = null;
+      try {
+        const metadata = await this.extractActivityMetadata(text);
+        activityId = await this.createActivity({
+          title: metadata.title,
+          description: metadata.description,
+          type: metadata.type,
+          transcript: text,
+          status: 'completed'
+        });
+      } catch (activityError) {
+        console.error("[LLMHelper] Failed to create activity for base64 audio:", activityError);
+      }
+      
+      return { 
+        text, 
+        timestamp: Date.now(),
+        activityId: activityId || undefined
+      };
     } catch (error) {
       console.error("[LLMHelper] Error in analyzeAudioFromBase64:", error);
       throw error;
     }
   }
-
+  
   public async analyzeImageFile(imagePath: string) {
     try {
       const activeContext = await this.getActiveContext()
