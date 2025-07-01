@@ -104,7 +104,10 @@ export class AuthHandler {
       // Create a proper URL for parsing query parameters
       const parsedUrl = new URL(`http://localhost/${pathPart}?${queryPart || ''}`)
 
-      switch (pathPart) {
+      // Remove trailing slash if present
+      const cleanPath = pathPart.replace(/\/$/, '')
+
+      switch (cleanPath) {
         case 'auth-success':
           console.log('✅ Handling auth success!')
           this.handleAuthSuccess(parsedUrl)
@@ -114,7 +117,7 @@ export class AuthHandler {
           this.handleAuthError(parsedUrl)
           break
         default:
-          console.warn('❓ Unknown auth callback path:', pathPart)
+          console.warn('❓ Unknown auth callback path:', cleanPath)
       }
     } catch (error) {
       console.error('💥 Error handling protocol URL:', error)
