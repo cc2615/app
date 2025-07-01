@@ -42,96 +42,51 @@ const command = `"${electronPath}" "${appPath}" "%1"`
 
 console.log('Target command:', command)
 
-// Use the working approach but fix the path issue
-// Force it to NOT use defaultApp mode to avoid the "." bug
-// Cross-platform protocol registration
-function registerProtocol() {
-  if (process.platform === 'darwin') {
-    // macOS: Use Electron's built-in protocol registration
-    console.log('🍎 Registering protocol for macOS')
-    
-    // Set as default protocol client - this is the key for macOS!
-    if (!app.isDefaultProtocolClient(protocol)) {
-      const success = app.setAsDefaultProtocolClient(protocol)
-      console.log(`macOS protocol registration ${success ? 'successful' : 'failed'} for ${protocol}://`)
-    } else {
-      console.log(`Already registered as default client for ${protocol}://`)
-    }
-  } else if (process.platform === 'win32') {
-    // Windows: Use registry approach
-    const { execSync } = require('child_process')
-    
-    const electronPath = process.execPath
-    const appPath = path.resolve(__dirname, '..')
-    const command = `"${electronPath}" "${appPath}" "%1"`
-    
-    try {
-      // Delete any existing registration
-      execSync(`reg delete "HKEY_CURRENT_USER\\Software\\Classes\\${protocol}" /f`, { stdio: 'ignore' })
-      console.log('Deleted old registry entry')
-    } catch (e) {
-      console.log('No old registry entry to delete')
-    }
-    
-    try {
-      const protocolKey = `HKEY_CURRENT_USER\\Software\\Classes\\${protocol}`
-      const commandKey = `${protocolKey}\\shell\\open\\command`
-      
-      execSync(`reg add "${protocolKey}" /ve /d "Paradigm" /f`, { stdio: 'ignore' })
-      execSync(`reg add "${protocolKey}" /v "URL Protocol" /d "" /f`, { stdio: 'ignore' })
-      execSync(`reg add "${commandKey}" /ve /d "${command}" /f`, { stdio: 'ignore' })
-      
-      console.log('Successfully added Windows registry entry')
-    } catch (e) {
-      console.error('Failed to add registry entry:', e)
-    }
-  }
-}
-
-// Call the registration function
-registerProtocol()
-
-// Make this a single-instance app - MUST be after protocol registration
+// Make this a single-instance app
 const gotTheLock = app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
-  console.log('Another instance already running, quitting...')
+  // Another instance is already running, quit this one
   app.quit()
 } else {
-  console.log('✅ Got single instance lock')
-  
-  // Handle second instance attempts (important for protocol handling)
-  // Handle second instance attempts (important for protocol handling)
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
-    console.log('🔥 Second instance detected!')
-    console.log('Command line:', commandLine)
-    
-    // Focus existing window
-    const appState = AppState.getInstance()
-    const mainWindow = appState.getMainWindow()
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.focus()
-      mainWindow.show()
-    }
-
-    // NEW: Handle protocol URLs on Windows
-    if (process.platform === 'win32') {
-      const protocol = process.env.CUSTOM_PROTOCOL || 'paradigm'
-      const protocolUrl = commandLine.find(arg => arg.startsWith(`${protocol}://`))
-      if (protocolUrl) {
-        console.log('🪟 Windows protocol URL found:', protocolUrl)
-        // We need to get the AuthHandler instance to process this
-        // Add this method to AppState to expose the auth handler
-        const authHandler = appState.getAuthHandler()
-        if (authHandler) {
-          authHandler.handleProtocolUrl(protocolUrl)
-        }
-      }
-    }
-  })
+  // This is the first instance, continue
+  console.log('Got single instance lock')
 }
 
+// Use the working approach but fix the path issue
+// Force it to NOT use defaultApp mode to avoid the "." bug
+if (process.platform === 'win32') {
+  const { execSync } = require('child_process')
+  
+  try {
+    // Delete any existing registration (suppress output)
+    execSync(`reg delete "HKEY_CURRENT_USER\\Software\\Classes\\${protocol}" /f`, { stdio: 'ignore' })
+    console.log('Deleted old registry entry')
+  } catch (e) {
+    console.log('No old registry entry to delete (or delete failed)')
+  }
+  
+  try {
+    // Create the protocol key structure (suppress output)
+    const protocolKey = `HKEY_CURRENT_USER\\Software\\Classes\\${protocol}`
+    const commandKey = `${protocolKey}\\shell\\open\\command`
+    
+    // Add protocol key
+    execSync(`reg add "${protocolKey}" /ve /d "Paradigm" /f`, { stdio: 'ignore' })
+    
+    // Add URL Protocol value  
+    execSync(`reg add "${protocolKey}" /v "URL Protocol" /d "" /f`, { stdio: 'ignore' })
+    
+    // Add the command
+    execSync(`reg add "${commandKey}" /ve /d "${command}" /f`, { stdio: 'ignore' })
+    
+    console.log('Successfully added registry entry with command:', command)
+  } catch (e) {
+    console.error('Failed to add registry entry:', e)
+  }
+}
+
+console.log(`Manual protocol registration completed: ${protocol}://`)
 
 export class AppState {
   private static instance: AppState | null = null
@@ -199,10 +154,6 @@ export class AppState {
 
     // Initialize ShortcutsHelper
     this.shortcutsHelper = new ShortcutsHelper(this)
-  }
-
-  public getAuthHandler(): AuthHandler | null {
-    return this.authHandler
   }
 
   public static getInstance(): AppState {
@@ -468,23 +419,29 @@ async function initializeApp() {
   // Initialize IPC handlers before window creation
   initializeIpcHandlers(appState)
 
-  // Add macOS protocol handler
-  if (process.platform === 'darwin') {
-    app.on('open-url', (event, url) => {
-      console.log('🍎 macOS open-url event:', url)
-      event.preventDefault()
-      
-      // Ensure app is ready and window exists
-      if (app.isReady()) {
-        const mainWindow = appState.getMainWindow()
-        if (mainWindow) {
-          if (mainWindow.isMinimized()) mainWindow.restore()
-          mainWindow.focus()
-          mainWindow.show()
-        }
-      }
-    })
-  }
+  // Add second-instance handler with detailed logging
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    console.log('🔥 SECOND-INSTANCE EVENT FIRED!')
+    console.log('Command line arguments:', commandLine)
+    console.log('Working directory:', workingDirectory)
+    
+    // Check for protocol URL
+    const protocolUrl = commandLine.find(arg => arg.startsWith('paradigm://'))
+    if (protocolUrl) {
+      console.log('📡 Found protocol URL in command line:', protocolUrl)
+      // The AuthHandler should handle this, but let's log it
+    } else {
+      console.log('❌ No protocol URL found in command line')
+    }
+
+    // Focus the main window
+    const mainWindow = appState.getMainWindow()
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+      console.log('🎯 Focused main window')
+    }
+  })
 
   app.whenReady().then(() => {
     console.log("App is ready")

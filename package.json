@@ -36,7 +36,7 @@
         "dmg",
         "zip"
       ],
-      "icon": "assets/icons/icon.icns"
+      "icon": "assets/icons/mac/icon.icns"
     },
     "win": {
       "target": [
