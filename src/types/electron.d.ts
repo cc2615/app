@@ -20,7 +20,7 @@ export interface ElectronAPI {
   takeScreenshot: () => Promise<void>
   moveWindowLeft: () => Promise<void>
   moveWindowRight: () => Promise<void>
-  analyzeAudioFromBase64: (data: string, mimeType: string) => Promise<{ text: string; timestamp: number }>
+  analyzeAudioFromBase64: (data: string, mimeType: string, duration?: string) => Promise<{ text: string; timestamp: number }>
   analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
   analyzeImageFile: (path: string) => Promise<{ text: string; detailed_analysis: any; timestamp: number }>
   quitApp: () => Promise<void>

@@ -1,3 +1,5 @@
+// src/components/Solutions/SolutionCommands.tsx
+
 import React, { useState, useEffect, useRef } from "react"
 import { BsThreeDotsVertical } from "react-icons/bs"
 import { IoLogOutOutline } from "react-icons/io5"
@@ -60,20 +62,25 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   }
 
   const handleRecordClick = async () => {
-    if (!isRecording) {
-      // Start recording
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        const recorder = new MediaRecorder(stream)
-        recorder.ondataavailable = (e) => chunks.current.push(e.data)
-        recorder.onstop = async () => {
-          const blob = new Blob(chunks.current, { type: chunks.current[0]?.type || 'audio/webm' })
-          chunks.current = []
+  if (!isRecording) {
+    // Start recording
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      let capturedDuration = 0;  // ✅ ADD THIS
+      recorder.ondataavailable = (e) => chunks.current.push(e.data)
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks.current, { type: chunks.current[0]?.type || 'audio/webm' })
+        chunks.current = []
+        
+        // Calculate duration from captured time
+        const durationString = formatTime((recorder as any).capturedDuration || 0)  // ✅ CHANGE THIS
+                  
           const reader = new FileReader()
           reader.onloadend = async () => {
             const base64Data = (reader.result as string).split(',')[1]
             try {
-              const result = await window.electronAPI.analyzeAudioFromBase64(base64Data, blob.type)
+              const result = await window.electronAPI.analyzeAudioFromBase64(base64Data, blob.type, durationString)
               setAudioResult(result.text)
             } catch (err) {
               setAudioResult('Audio analysis failed.')
@@ -89,7 +96,11 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
       }
     } else {
       // Stop recording
-      mediaRecorder?.stop()
+      if (mediaRecorder) {
+        // Capture duration before stopping
+        (mediaRecorder as any).capturedDuration = recordingTime;  // ✅ ADD THIS
+        mediaRecorder.stop()
+      }
       setIsRecording(false)
       setMediaRecorder(null)
     }

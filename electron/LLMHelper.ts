@@ -28,6 +28,11 @@ interface ActivitySession {
   description: string;
   type: string;
   transcript?: string;
+  summary?: string; // Add this
+  duration?: string; // Add this
+  key_points?: string[]; // Add this
+  action_items?: any[]; // Add this
+  tags?: string[]; // Add this
   userId?: string;
   status?: 'processing' | 'completed';
   isStarred?: boolean;
@@ -54,6 +59,25 @@ export class LLMHelper {
   constructor(apiKey: string) {
     const genAI = new GoogleGenerativeAI(apiKey)
     this.model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
+  }
+
+  // Add this new method after the constructor
+  private getAudioDurationFromString(durationString?: string): string {
+    if (durationString && durationString !== "0:00") {
+      return durationString;
+    }
+    return "0:00";
+  }
+  
+  private async getAudioDuration(audioPath: string): Promise<string> {
+    try {
+      // For file-based audio, return placeholder for now
+      // In production, you'd use ffprobe or similar
+      return "0:00";
+    } catch (error) {
+      console.error("[LLMHelper] Error getting audio duration:", error);
+      return "0:00";
+    }
   }
 
   // Set auth token for API calls
@@ -164,26 +188,51 @@ export class LLMHelper {
   }
 
   // Extract activity metadata from audio text
-  private async extractActivityMetadata(audioText: string): Promise<{ title: string; type: string; description: string }> {
+  private async extractActivityMetadata(transcript: string, analysis: string): Promise<{
+    title: string;
+    type: string;
+    description: string;
+    summary: string;
+    key_points: string[];
+    action_items: any[];
+    tags: string[];
+  }> {
     try {
-      const prompt = `Analyze this audio transcript and extract activity metadata. Return JSON only:
-
+      const prompt = `Analyze this audio transcript and AI analysis to extract comprehensive activity metadata. Return JSON only:
+  
   {
     "title": "Short descriptive title (max 50 chars)",
     "type": "ideas|brainstorm|meeting|note|task|other",
-    "description": "Brief summary of the main content (max 200 chars)"
+    "description": "Brief summary of the main content (max 200 chars)",
+    "summary": "Detailed summary of the content (2-3 sentences)",
+    "key_points": ["Important point 1", "Important point 2", "Important point 3"],
+    "action_items": [
+      {
+        "id": "1",
+        "task": "Task description",
+        "assignee": null,
+        "due_date": null,
+        "completed": false
+      }
+    ],
+    "tags": ["relevant", "tags", "here"]
   }
-
-  Audio transcript: "${audioText}"
-
+  
+  Original transcript: "${transcript}"
+  
+  AI analysis: "${analysis}"
+  
   Rules:
   - Title should be concise and descriptive
   - Type should match the content (ideas for creative thoughts, brainstorm for collaborative thinking, meeting for discussions, note for information, task for action items)
-  - Description should summarize key points
-  - Keep everything concise and actionable
-
+  - Description should summarize key points briefly
+  - Summary should be more detailed (2-3 sentences)
+  - Key points should be the most important takeaways (3-5 points max)
+  - Action items should only include actual tasks mentioned
+  - Tags should be relevant keywords (3-5 tags max)
+  
   CRITICAL: Return ONLY the JSON object with no additional text, explanations, or markdown formatting. Ensure all quotes and special characters are properly escaped.`
-
+  
       const result = await this.model.generateContent(prompt)
       const response = await result.response
       const rawText = response.text()
@@ -195,14 +244,22 @@ export class LLMHelper {
         return {
           title: parsed.title || "Audio Recording",
           type: parsed.type || "note",
-          description: parsed.description || "Audio recording analysis"
+          description: parsed.description || "Audio recording analysis",
+          summary: parsed.summary || analysis.substring(0, 300) + (analysis.length > 300 ? "..." : ""),
+          key_points: parsed.key_points || [],
+          action_items: parsed.action_items || [],
+          tags: parsed.tags || []
         }
       } catch (parseError) {
         console.warn("[LLMHelper] Failed to parse activity metadata, using defaults")
         return {
           title: "Audio Recording",
           type: "note",
-          description: audioText.substring(0, 200) + (audioText.length > 200 ? "..." : "")
+          description: transcript.substring(0, 200) + (transcript.length > 200 ? "..." : ""),
+          summary: analysis.substring(0, 300) + (analysis.length > 300 ? "..." : ""),
+          key_points: [],
+          action_items: [],
+          tags: []
         }
       }
     } catch (error) {
@@ -210,11 +267,34 @@ export class LLMHelper {
       return {
         title: "Audio Recording",
         type: "note",
-        description: audioText.substring(0, 200) + (audioText.length > 200 ? "..." : "")
+        description: transcript.substring(0, 200) + (transcript.length > 200 ? "..." : ""),
+        summary: analysis.substring(0, 300) + (analysis.length > 300 ? "..." : ""),
+        key_points: [],
+        action_items: [],
+        tags: []
       }
     }
   }
 
+  private async transcribeAudio(audioData: string, mimeType: string): Promise<string> {
+    try {
+      const audioPart = {
+        inlineData: {
+          data: audioData,
+          mimeType
+        }
+      };
+      
+      const prompt = `Transcribe this audio file accurately. Return only the transcribed text with no additional commentary, analysis, or formatting. Just the raw speech-to-text conversion.`;
+  
+      const result = await this.model.generateContent([prompt, audioPart]);
+      const response = await result.response;
+      return response.text().trim();
+    } catch (error) {
+      console.error("[LLMHelper] Error transcribing audio:", error);
+      throw error;
+    }
+  }
   private async fileToGenerativePart(imagePath: string) {
     const imageData = await fs.promises.readFile(imagePath)
     return {
@@ -567,32 +647,48 @@ CRITICAL: Return ONLY the JSON object with no additional text, explanations, or 
       const activeContext = await this.getActiveContext()
       
       const audioData = await fs.promises.readFile(audioPath);
+      const base64Data = audioData.toString("base64");
+      const duration = await this.getAudioDuration(audioPath);
       
-      const audioPart = {
-        inlineData: {
-          data: audioData.toString("base64"),
-          mimeType: "audio/mp3"
-        }
-      };
+      // Step 1: Transcribe the audio
+      const transcript = await this.transcribeAudio(base64Data, "audio/mp3");
       
-      const prompt = `${activeContext}${this.systemPrompt}
+      // Step 2: Analyze the transcript
+      const analysisPrompt = `${activeContext}${this.systemPrompt}
 
-Listen to this audio and respond directly. If it's a problem/question, solve it completely with full steps. If it's a task/instruction, list the next steps to complete it. Be direct and actionable.`;
+  Analyze this audio transcript and provide insights, solutions, and actionable next steps:
 
-      const result = await this.model.generateContent([prompt, audioPart]);
+  Transcript: "${transcript}"
+
+  Provide a comprehensive analysis including:
+  - Key insights or solutions
+  - Important points discussed
+  - Any action items mentioned
+  - Relevant context and implications
+  - Next steps or recommendations
+
+  Be direct and actionable.`;
+
+      const analysisResult = await this.model.generateContent(analysisPrompt);
+      const analysisResponse = await analysisResult.response;
+      const analysis = analysisResponse.text();
       
-      const response = await result.response;
-      const text = response.text();
+      // Step 3: Extract comprehensive metadata
+      const metadata = await this.extractActivityMetadata(transcript, analysis);
       
-      // Create activity automatically
+      // Step 4: Create activity with all fields
       let activityId: string | null = null;
       try {
-        const metadata = await this.extractActivityMetadata(text);
         activityId = await this.createActivity({
           title: metadata.title,
           description: metadata.description,
           type: metadata.type,
-          transcript: text,
+          transcript: transcript, // Store raw transcript
+          summary: metadata.summary, // Store AI analysis as summary
+          duration: this.getAudioDurationFromString(duration),
+          key_points: metadata.key_points,
+          action_items: metadata.action_items,
+          tags: metadata.tags,
           status: 'completed'
         });
       } catch (activityError) {
@@ -600,7 +696,7 @@ Listen to this audio and respond directly. If it's a problem/question, solve it 
       }
       
       return { 
-        text, 
+        text: analysis, // Return the analysis to the user
         timestamp: Date.now(),
         activityId: activityId || undefined
       };
@@ -610,35 +706,50 @@ Listen to this audio and respond directly. If it's a problem/question, solve it 
     }
   }
 
-  public async analyzeAudioFromBase64(data: string, mimeType: string): Promise<AudioAnalysisResult> {
+  public async analyzeAudioFromBase64(data: string, mimeType: string, duration?: string): Promise<AudioAnalysisResult> {
+    console.log("🔥 LLMHelper received duration:", duration);  // ADD THIS
     try {
       const activeContext = await this.getActiveContext()
       
-      const audioPart = {
-        inlineData: {
-          data,
-          mimeType
-        }
-      };
+      // Step 1: Transcribe the audio
+      const transcript = await this.transcribeAudio(data, mimeType);
       
-      const prompt = `${activeContext}${this.systemPrompt}
-
-Listen to this audio and solve any problem mentioned. If it's a question, answer it directly with full steps. If it's a task, complete it with detailed next steps. Be direct and actionable - give the complete solution or clear next steps.`;
-
-      const result = await this.model.generateContent([prompt, audioPart]);
+      // Step 2: Analyze the transcript  
+      const analysisPrompt = `${activeContext}${this.systemPrompt}
+  
+  Analyze this audio transcript and provide insights, solutions, and actionable next steps:
+  
+  Transcript: "${transcript}"
+  
+  Provide a comprehensive analysis including:
+  - Key insights or solutions
+  - Important points discussed  
+  - Any action items mentioned
+  - Relevant context and implications
+  - Next steps or recommendations
+  
+  Be direct and actionable.`;
+  
+      const analysisResult = await this.model.generateContent(analysisPrompt);
+      const analysisResponse = await analysisResult.response;
+      const analysis = analysisResponse.text();
       
-      const response = await result.response;
-      const text = response.text();
+      // Step 3: Extract comprehensive metadata
+      const metadata = await this.extractActivityMetadata(transcript, analysis);
       
-      // Create activity automatically
+      // Step 4: Create activity with all fields
       let activityId: string | null = null;
       try {
-        const metadata = await this.extractActivityMetadata(text);
         activityId = await this.createActivity({
           title: metadata.title,
           description: metadata.description,
           type: metadata.type,
-          transcript: text,
+          transcript: transcript, // Store raw transcript
+          summary: metadata.summary, // Store AI analysis as summary  
+          duration: this.getAudioDurationFromString(duration),
+          key_points: metadata.key_points,
+          action_items: metadata.action_items,
+          tags: metadata.tags,
           status: 'completed'
         });
       } catch (activityError) {
@@ -646,7 +757,7 @@ Listen to this audio and solve any problem mentioned. If it's a question, answer
       }
       
       return { 
-        text, 
+        text: analysis, // Return the analysis to the user
         timestamp: Date.now(),
         activityId: activityId || undefined
       };
@@ -655,7 +766,7 @@ Listen to this audio and solve any problem mentioned. If it's a question, answer
       throw error;
     }
   }
-  
+
   public async analyzeImageFile(imagePath: string) {
     try {
       const activeContext = await this.getActiveContext()

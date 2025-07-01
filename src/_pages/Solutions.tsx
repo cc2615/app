@@ -433,7 +433,7 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
               try {
                 const result = await window.electronAPI.analyzeAudioFromBase64(
                   base64Data,
-                  blob.type
+                  blob.type,
                 )
                 // Store result in react-query cache
                 queryClient.setQueryData(["audio_result"], result)

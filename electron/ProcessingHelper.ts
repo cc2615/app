@@ -196,13 +196,13 @@ export class ProcessingHelper {
     this.appState.setHasDebugged(false)
   }
 
-  public async processAudioBase64(data: string, mimeType: string) {
+  public async processAudioBase64(data: string, mimeType: string, duration?: string) {
     // Update auth token before processing
     this.updateAuthToken()
     // Directly use LLMHelper to analyze inline base64 audio
-    return this.llmHelper.analyzeAudioFromBase64(data, mimeType);
+    return this.llmHelper.analyzeAudioFromBase64(data, mimeType, duration);
   }
-
+  
   // Add audio file processing method
   public async processAudioFile(filePath: string) {
     // Update auth token before processing
