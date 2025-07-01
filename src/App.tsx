@@ -21,7 +21,6 @@ const App: React.FC = () => {
   const [user, setUser] = useState<any>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [showMonitorBar, setShowMonitorBar] = useState(false)
 
   // Check auth state on app startup
   useEffect(() => {
@@ -186,19 +185,6 @@ const App: React.FC = () => {
     console.log("Tooltip visibility:", visible, "height:", height)
   }
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key.toLowerCase() === 'l') {
-        setShowMonitorBar(true)
-      }
-      if (e.key === 'Escape' && showMonitorBar) {
-        setShowMonitorBar(false)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showMonitorBar])
-
   // Show loading state
   if (authState === "loading") {
     return (
@@ -233,30 +219,20 @@ const App: React.FC = () => {
 
   // Show main app when authenticated
   return (
-    <>
- {showMonitorBar && (
-  <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur">
-    <p className="text-sm bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
-      Monitoring screen...
-    </p>
-  </div>
-)}
-
-      <div ref={containerRef} className="min-h-0">
-        <QueryClientProvider client={queryClient}>
-          <ToastProvider>
-            {view === "queue" ? (
-              <Queue setView={setView} />
-            ) : view === "solutions" ? (
-              <Solutions setView={setView} />
-            ) : (
-              <></>
-            )}
-            <ToastViewport />
-          </ToastProvider>
-        </QueryClientProvider>
-      </div>
-    </>
+    <div ref={containerRef} className="min-h-0">
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          {view === "queue" ? (
+            <Queue setView={setView} />
+          ) : view === "solutions" ? (
+            <Solutions setView={setView} />
+          ) : (
+            <></>
+          )}
+          <ToastViewport />
+        </ToastProvider>
+      </QueryClientProvider>
+    </div>
   )
 }
 

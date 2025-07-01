@@ -21,7 +21,6 @@ export class ShortcutsHelper {
     this.registerResetShortcut()
     this.registerMoveShortcuts()
     this.registerShowHideShortcut()
-    this.registerScreenMonitorShortcut()
   }
 
   // Register only the show/hide shortcut (Ctrl+B)
@@ -150,14 +149,6 @@ export class ShortcutsHelper {
           }, 100)
         }
       }
-    })
-  }
-
-  // Add a new shortcut for screen monitor (Ctrl+L)
-  private registerScreenMonitorShortcut() {
-    globalShortcut.register("CommandOrControl+L", () => {
-      console.log("Screen Monitor shortcut (Ctrl+L) triggered!")
-      // TODO: Implement screen monitor logic here
     })
   }
 }
