@@ -161,6 +161,40 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   })
 
+  // Refresh auth token
+  ipcMain.handle("refresh-auth-token", async () => {
+    try {
+      const success = await appState.refreshAuthToken()
+      return { 
+        success,
+        message: success ? 'Token refreshed successfully' : 'Token refresh failed'
+      }
+    } catch (error: any) {
+      console.error("Error refreshing token:", error)
+      return {
+        success: false,
+        error: error.message
+      }
+    }
+  })
+
+  // Check if user is authenticated (for middleware/guards)
+  ipcMain.handle("is-authenticated", async () => {
+    try {
+      const isAuth = appState.isUserAuthenticated()
+      return { 
+        success: true,
+        isAuthenticated: isAuth
+      }
+    } catch (error: any) {
+      console.error("Error checking auth status:", error)
+      return {
+        success: false,
+        isAuthenticated: false
+      }
+    }
+  })
+
   // ============ CONTEXT-RELATED IPC HANDLERS ============
 
   // Refresh context cache

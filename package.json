@@ -81,7 +81,7 @@
   ],
   "author": "Christopher Ma <chris.pengfei.ma@gmail.com>, Caden Chen <cadenc.woss@gmail.com>",
   "license": "MIT",
-  "description": "An AI-powered assistant that helps you solve problems through screenshots, voice input, and intelligent analysis. PARADIGM combines computer vision, natural language processing to provide real-time assistance.",
+  "description": "Paradigm",
   "homepage": "https://github.com/cc2615/app",
   "repository": {
     "type": "git",

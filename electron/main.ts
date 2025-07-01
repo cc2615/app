@@ -6,6 +6,7 @@ import { ScreenshotHelper } from "./ScreenshotHelper"
 import { ShortcutsHelper } from "./shortcuts"
 import { ProcessingHelper } from "./ProcessingHelper"
 import { AuthHandler, AuthData } from "./authHandler"
+import { AuthManager } from "./AuthManager"
 
 // Load environment variables from .env file
 try {
@@ -100,9 +101,7 @@ export class AppState {
   private view: "queue" | "solutions" = "queue"
 
   // Auth state
-  private isAuthenticated: boolean = false
-  private authToken: string | null = null
-  private userData: any = null
+  private authManager: AuthManager
 
   private problemInfo: {
     problem_statement: string
@@ -141,6 +140,9 @@ export class AppState {
   } as const
 
   constructor() {
+    // Initialize AuthManager
+    this.authManager = AuthManager.getInstance()
+
     // Initialize WindowHelper with this
     this.windowHelper = new WindowHelper(this)
 
@@ -152,9 +154,6 @@ export class AppState {
 
     // Initialize ShortcutsHelper
     this.shortcutsHelper = new ShortcutsHelper(this)
-
-    // Load saved auth state
-    this.loadAuthState()
   }
 
   public static getInstance(): AppState {
@@ -165,39 +164,52 @@ export class AppState {
   }
 
   // Auth methods
-  public initializeAuth(): void {
+  public async initializeAuth(): Promise<void> {
     const mainWindow = this.getMainWindow()
     if (!mainWindow) return
-
-    this.authHandler = new AuthHandler(mainWindow)
-    this.authHandler.registerProtocol()
-    this.authHandler.setCallbacks({
-      onSuccess: (data: AuthData) => this.handleAuthSuccess(data),
-      onError: (error: string) => this.handleAuthError(error)
-    })
+  
+    try {
+      // Initialize AuthManager first (loads and validates stored auth)
+      await this.authManager.initialize()
+  
+      // Set up AuthHandler for protocol callbacks
+      this.authHandler = new AuthHandler(mainWindow)
+      this.authHandler.registerProtocol()
+      this.authHandler.setCallbacks({
+        onSuccess: (data: AuthData) => this.handleAuthSuccess(data),
+        onError: (error: string) => this.handleAuthError(error)
+      })
+  
+      // Notify renderer of initial auth state
+      this.notifyAuthStateChanged()
+  
+      console.log('🔐 Auth system initialized')
+    } catch (error) {
+      console.error('💥 Failed to initialize auth system:', error)
+    }
   }
 
   private async handleAuthSuccess(data: AuthData): Promise<void> {
-    this.isAuthenticated = true
-    this.authToken = data.token
-    this.userData = data.user
-
-    // Save auth state to secure storage
-    await this.saveAuthState()
-
-    // Notify renderer process
-    const mainWindow = this.getMainWindow()
-    if (mainWindow) {
-      mainWindow.webContents.send(this.AUTH_EVENTS.AUTH_SUCCESS, {
-        user: this.userData,
-        token: '***' // Don't send actual token to renderer
-      })
-      mainWindow.webContents.send(this.AUTH_EVENTS.AUTH_STATE_CHANGED, { 
-        isAuthenticated: true 
-      })
+    try {
+      // Let AuthManager handle the success
+      await this.authManager.handleAuthSuccess(data)
+  
+      // Notify renderer process
+      this.notifyAuthStateChanged()
+      
+      const mainWindow = this.getMainWindow()
+      if (mainWindow) {
+        mainWindow.webContents.send(this.AUTH_EVENTS.AUTH_SUCCESS, {
+          user: this.authManager.getUserData(),
+          token: '***' // Don't send actual token to renderer
+        })
+      }
+  
+      console.log('✅ User authenticated successfully')
+    } catch (error) {
+      console.error('💥 Auth success handling failed:', error)
+      this.handleAuthError('Authentication failed')
     }
-
-    console.log('User authenticated successfully')
   }
 
   private handleAuthError(error: string): void {
@@ -209,6 +221,16 @@ export class AppState {
     }
   }
 
+  private notifyAuthStateChanged(): void {
+    const mainWindow = this.getMainWindow()
+    if (mainWindow) {
+      const authState = this.authManager.getAuthState()
+      mainWindow.webContents.send(this.AUTH_EVENTS.AUTH_STATE_CHANGED, { 
+        isAuthenticated: authState.isAuthenticated 
+      })
+    }
+  }
+
   public async openLoginUrl(): Promise<void> {
     if (this.authHandler) {
       await this.authHandler.openLoginUrl()
@@ -216,113 +238,55 @@ export class AppState {
   }
 
   public async logout(): Promise<void> {
-    this.isAuthenticated = false
-    this.authToken = null
-    this.userData = null
-
-    // Clear saved auth state
-    await this.clearAuthState()
-
-    // Clear app state
-    this.clearQueues()
-
-    // Notify renderer process
-    const mainWindow = this.getMainWindow()
-    if (mainWindow) {
-      mainWindow.webContents.send(this.AUTH_EVENTS.AUTH_LOGOUT)
-      mainWindow.webContents.send(this.AUTH_EVENTS.AUTH_STATE_CHANGED, { 
-        isAuthenticated: false 
-      })
-    }
-
-    console.log('User logged out')
-  }
-
-  private async saveAuthState(): Promise<void> {
     try {
-      const { safeStorage } = require('electron')
-      if (safeStorage.isEncryptionAvailable() && this.authToken) {
-        const authData = {
-          token: this.authToken,
-          user: this.userData,
-          timestamp: Date.now()
-        }
-        const encrypted = safeStorage.encryptString(JSON.stringify(authData))
-        
-        // Save to app data (you might want to use electron-store here)
-        const fs = require('fs')
-        const path = require('path')
-        const userDataPath = app.getPath('userData')
-        const authFilePath = path.join(userDataPath, 'auth.dat')
-        
-        fs.writeFileSync(authFilePath, encrypted)
+      // Use AuthManager to handle logout
+      await this.authManager.logout()
+  
+      // Clear app state
+      this.clearQueues()
+  
+      // Notify renderer process
+      this.notifyAuthStateChanged()
+      
+      const mainWindow = this.getMainWindow()
+      if (mainWindow) {
+        mainWindow.webContents.send(this.AUTH_EVENTS.AUTH_LOGOUT)
       }
+  
+      console.log('👋 User logged out successfully')
     } catch (error) {
-      console.error('Failed to save auth state:', error)
+      console.error('💥 Logout failed:', error)
     }
   }
 
-  private async loadAuthState(): Promise<void> {
-    try {
-      const { safeStorage } = require('electron')
-      const fs = require('fs')
-      const path = require('path')
-      
-      if (!safeStorage.isEncryptionAvailable()) return
-
-      const userDataPath = app.getPath('userData')
-      const authFilePath = path.join(userDataPath, 'auth.dat')
-      
-      if (!fs.existsSync(authFilePath)) return
-
-      const encrypted = fs.readFileSync(authFilePath)
-      const decrypted = safeStorage.decryptString(encrypted)
-      const authData = JSON.parse(decrypted)
-
-      // Check if token is not too old (optional - implement token refresh)
-      const maxAge = 30 * 24 * 60 * 60 * 1000 // 30 days
-      if (Date.now() - authData.timestamp > maxAge) {
-        await this.clearAuthState()
-        return
-      }
-
-      this.isAuthenticated = true
-      this.authToken = authData.token
-      this.userData = authData.user
-
-      console.log('Auth state loaded from storage')
-    } catch (error) {
-      console.error('Failed to load auth state:', error)
-      await this.clearAuthState()
-    }
-  }
-
-  private async clearAuthState(): Promise<void> {
-    try {
-      const fs = require('fs')
-      const path = require('path')
-      const userDataPath = app.getPath('userData')
-      const authFilePath = path.join(userDataPath, 'auth.dat')
-      
-      if (fs.existsSync(authFilePath)) {
-        fs.unlinkSync(authFilePath)
-      }
-    } catch (error) {
-      console.error('Failed to clear auth state:', error)
-    }
-  }
-
+  
   // Auth getters
+  public getAuthState(): { isAuthenticated: boolean; user: any } {
+    const authState = this.authManager.getAuthState()
+    return {
+      isAuthenticated: authState.isAuthenticated,
+      user: authState.user
+    }
+  }
+  
   public isUserAuthenticated(): boolean {
-    return this.isAuthenticated
+    return this.authManager.isAuthenticated()
   }
-
+  
   public getAuthToken(): string | null {
-    return this.authToken
+    return this.authManager.getAuthToken()
+  }
+  
+  public getUserData(): any {
+    return this.authManager.getUserData()
   }
 
-  public getUserData(): any {
-    return this.userData
+  public async refreshAuthToken(): Promise<boolean> {
+    const success = await this.authManager.refreshToken()
+    if (success) {
+      this.notifyAuthStateChanged()
+    }
+    return success
   }
 
   // Existing getters and setters
@@ -367,7 +331,7 @@ export class AppState {
   public createWindow(): void {
     this.windowHelper.createWindow()
     // Initialize auth after window is created
-    setTimeout(() => this.initializeAuth(), 100)
+    setTimeout(() => this.initializeAuth(), 500)
   }
 
   public hideMainWindow(): void {

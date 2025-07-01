@@ -6,63 +6,6 @@ import Solutions from "./_pages/Solutions"
 import { QueryClient, QueryClientProvider } from "react-query"
 import AuthScreen from "./components/Auth/AuthScreen"
 
-declare global {
-  interface Window {
-    electronAPI: {
-      //RANDOM GETTER/SETTERS
-      updateContentDimensions: (dimensions: {
-        width: number
-        height: number
-      }) => Promise<void>
-      getScreenshots: () => Promise<Array<{ path: string; preview: string }>>
-
-      //GLOBAL EVENTS
-      //TODO: CHECK THAT PROCESSING NO SCREENSHOTS AND TAKE SCREENSHOTS ARE BOTH CONDITIONAL
-      onUnauthorized: (callback: () => void) => () => void
-      onScreenshotTaken: (
-        callback: (data: { path: string; preview: string }) => void
-      ) => () => void
-      onProcessingNoScreenshots: (callback: () => void) => () => void
-      onResetView: (callback: () => void) => () => void
-      takeScreenshot: () => Promise<void>
-
-      //INITIAL SOLUTION EVENTS
-      deleteScreenshot: (
-        path: string
-      ) => Promise<{ success: boolean; error?: string }>
-      onSolutionStart: (callback: () => void) => () => void
-      onSolutionError: (callback: (error: string) => void) => () => void
-      onSolutionSuccess: (callback: (data: any) => void) => () => void
-      onProblemExtracted: (callback: (data: any) => void) => () => void
-
-      onDebugSuccess: (callback: (data: any) => void) => () => void
-
-      onDebugStart: (callback: () => void) => () => void
-      onDebugError: (callback: (error: string) => void) => () => void
-
-      // Audio Processing
-      analyzeAudioFromBase64: (data: string, mimeType: string) => Promise<{ text: string; timestamp: number }>
-      analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
-
-      moveWindowLeft: () => Promise<void>
-      moveWindowRight: () => Promise<void>
-      quitApp: () => Promise<void>
-
-      // Auth methods
-      getAuthState: () => Promise<{ isAuthenticated: boolean; user: any }>
-      openLoginUrl: () => Promise<{ success: boolean; error?: string }>
-      openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>
-      logout: () => Promise<{ success: boolean; error?: string }>
-      
-      // Auth event listeners
-      onAuthSuccess: (callback: (data: { user: any; token: string }) => void) => () => void
-      onAuthError: (callback: (data: { error: string }) => void) => () => void
-      onAuthStateChanged: (callback: (data: { isAuthenticated: boolean }) => void) => () => void
-      onAuthLogout: (callback: () => void) => () => void
-    }
-  }
-}
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -84,9 +27,12 @@ const App: React.FC = () => {
     const checkAuthState = async () => {
       try {
         const { isAuthenticated, user } = await window.electronAPI.getAuthState()
-        if (isAuthenticated) {
+        console.log('Initial auth state:', { isAuthenticated, user })
+        
+        if (isAuthenticated && user) {
           setAuthState("authenticated")
           setUser(user)
+          console.log('User automatically logged in:', user.email || 'Unknown')
         } else {
           setAuthState("unauthenticated")
         }

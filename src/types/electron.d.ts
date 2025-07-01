@@ -26,6 +26,18 @@ export interface ElectronAPI {
   quitApp: () => Promise<void>
   aiChatFollowup: (chatHistory: { role: 'user' | 'ai', content: string }[], detailedAnalysis?: any) => Promise<{ text: string }>
   refreshContext: () => Promise<{ success: boolean; error?: string }>
+  
+  // Add these missing auth methods:
+  getAuthState: () => Promise<{ isAuthenticated: boolean; user: any }>
+  openLoginUrl: () => Promise<{ success: boolean; error?: string }>
+  openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<{ success: boolean; error?: string }>
+  
+  // Auth event listeners
+  onAuthSuccess: (callback: (data: { user: any; token: string }) => void) => () => void
+  onAuthError: (callback: (data: { error: string }) => void) => () => void
+  onAuthStateChanged: (callback: (data: { isAuthenticated: boolean }) => void) => () => void
+  onAuthLogout: (callback: () => void) => () => void
 }
 
 declare global {

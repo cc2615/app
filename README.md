@@ -1,6 +1,6 @@
 # PARADIGM
 
-An AI-powered assistant that helps you solve problems through screenshots, voice input, and intelligent analysis. PARADIGM combines computer vision, natural language processing to provide real-time assistance.
+Paradigm
 
 ## Features
 

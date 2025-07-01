@@ -49,7 +49,7 @@ interface AudioAnalysisResult {
 
 export class LLMHelper {
   private model: GenerativeModel
-  private readonly systemPrompt = `You are Wingman AI, a direct problem-solving assistant. When given a task, solve it immediately and concisely. Don't suggest external tools - you ARE the tool. Be brief and actionable.`
+  private readonly systemPrompt = `You are Paradigm, a direct problem-solving assistant. When given a task, solve it immediately and concisely. Don't suggest external tools - you ARE the tool. Be brief and actionable.`
   
   // Context caching
   private contextCache: ContextCache | null = null
