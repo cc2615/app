@@ -182,11 +182,13 @@ export class LLMHelper {
   - Description should summarize key points
   - Keep everything concise and actionable
 
-  Return only the JSON object.`
+  CRITICAL: Return ONLY the JSON object with no additional text, explanations, or markdown formatting. Ensure all quotes and special characters are properly escaped.`
 
       const result = await this.model.generateContent(prompt)
       const response = await result.response
-      const text = this.cleanJsonResponse(response.text())
+      const rawText = response.text()
+      console.log("[LLMHelper] Raw activity metadata response:", rawText)
+      const text = this.cleanJsonResponse(rawText)
       
       try {
         const parsed = JSON.parse(text)
@@ -228,7 +230,47 @@ export class LLMHelper {
     text = text.replace(/^```(?:json)?\n/, '').replace(/\n```$/, '');
     // Remove any leading/trailing whitespace
     text = text.trim();
-    return text;
+    
+    // Try to find JSON object boundaries
+    const jsonStart = text.indexOf('{');
+    const jsonEnd = text.lastIndexOf('}');
+    
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      text = text.substring(jsonStart, jsonEnd + 1);
+    }
+    
+    // Handle common JSON escaping issues
+    try {
+      // First, try to parse as-is to see if it's already valid
+      JSON.parse(text);
+      return text;
+    } catch (parseError) {
+      console.log("[LLMHelper] JSON parsing failed, attempting to fix common issues...");
+      
+      try {
+        // Fix unescaped backslashes that aren't part of valid escape sequences
+        // This specifically handles LaTeX commands like \frac, \sqrt, etc.
+        text = text.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+        
+        // Try parsing again
+        JSON.parse(text);
+        return text;
+      } catch (secondError) {
+        console.error("[LLMHelper] Failed to fix JSON, returning safe fallback:", secondError);
+        
+        // If we still can't parse it, return a safe fallback
+        return JSON.stringify({
+          main_problem: "Error parsing LLM response - the AI returned malformed JSON",
+          ui_elements: [],
+          text_content: [],
+          visual_elements: [],
+          layout_info: {},
+          context: "Failed to analyze image due to JSON parsing error",
+          user_actions_needed: ["Try again", "Check image format"],
+          technical_details: {}
+        });
+      }
+    }
   }
 
   public async extractProblemFromImages(imagePaths: string[]) {
@@ -281,13 +323,17 @@ export class LLMHelper {
   }
 }
 
-Be extremely thorough - capture every single visible element, text, button, and detail from all images. Don't miss anything. Return only the JSON object.`
+Be extremely thorough - capture every single visible element, text, button, and detail from all images. Don't miss anything. 
+
+CRITICAL: Return ONLY the JSON object with no additional text, explanations, or markdown formatting. Ensure all quotes and special characters are properly escaped.`
 
       const fullPrompt = [prompt, ...imageParts]
       const result = await this.model.generateContent(fullPrompt)
       
       const response = await result.response
-      const text = this.cleanJsonResponse(response.text())
+      const rawText = response.text()
+      console.log("[LLMHelper] Raw extractProblemFromImages response:", rawText)
+      const text = this.cleanJsonResponse(rawText)
       
       const parsed = JSON.parse(text)
       
@@ -417,12 +463,16 @@ Solve it directly, taking into account all the UI elements and context provided.
   }
 }
 
-For math problems: show the work and final answer. For code: provide working code. For UI problems: consider the available elements and their states. Don't suggest external tools - solve it yourself. Return only the JSON object.`
+For math problems: show the work and final answer. For code: provide working code. For UI problems: consider the available elements and their states. Don't suggest external tools - solve it yourself. 
+
+CRITICAL: Return ONLY the JSON object with no additional text, explanations, or markdown formatting. Ensure all quotes and special characters are properly escaped.`
 
       const result = await this.model.generateContent(prompt)
       
       const response = await result.response
-      const text = this.cleanJsonResponse(response.text())
+      const rawText = response.text()
+      console.log("[LLMHelper] Raw generateSolution response:", rawText)
+      const text = this.cleanJsonResponse(rawText)
       const parsed = JSON.parse(text)
       
       return parsed
@@ -492,13 +542,17 @@ Analyze the debug images comprehensively and provide an improved solution. Extra
   }
 }
 
-Be extremely thorough in analyzing the debug images. Capture every detail that might help identify what's wrong with the current solution. Return only the JSON object.`
+Be extremely thorough in analyzing the debug images. Capture every detail that might help identify what's wrong with the current solution. 
+
+CRITICAL: Return ONLY the JSON object with no additional text, explanations, or markdown formatting. Ensure all quotes and special characters are properly escaped.`
 
       const fullPrompt = [prompt, ...imageParts]
       const result = await this.model.generateContent(fullPrompt)
       
       const response = await result.response
-      const text = this.cleanJsonResponse(response.text())
+      const rawText = response.text()
+      console.log("[LLMHelper] Raw debugSolutionWithImages response:", rawText)
+      const text = this.cleanJsonResponse(rawText)
       const parsed = JSON.parse(text)
       
       return parsed
@@ -617,6 +671,8 @@ Listen to this audio and solve any problem mentioned. If it's a question, answer
       
       const prompt = `${activeContext}Analyze this screenshot comprehensively and extract ALL visible information in JSON format:
 
+IMPORTANT: Return ONLY valid JSON. All quotes, backslashes, and special characters within string values must be properly escaped. Do not include any text before or after the JSON object.
+
 {
   "main_problem": "If this shows a problem/question, solve it completely with full steps. If this is not a problem but shows a task/interface, list the next steps to complete the task. Be direct and actionable. Use LaTeX formatting for math or equations if needed (e.g., \\(x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\\)).",
   "ui_elements": [
@@ -666,13 +722,19 @@ IMPORTANT: For the main_problem field:
 - If this shows a task/interface (not a problem): List the next steps to complete the task
 - Be direct, actionable, and provide complete solutions or clear next steps
 
-Be extremely thorough - capture every single visible element, text, button, and detail. Don't miss anything. Return only the JSON object.`;
+Be extremely thorough - capture every single visible element, text, button, and detail. Don't miss anything. 
+
+CRITICAL: Return ONLY the JSON object with no additional text, explanations, or markdown formatting. Ensure all quotes and special characters are properly escaped.`;
 
       const result = await this.model.generateContent([prompt, imagePart]);
       
       const response = await result.response;
       
-      const text = this.cleanJsonResponse(response.text());
+      const rawText = response.text();
+      console.log("[LLMHelper] Raw AI response:", rawText);
+      
+      const text = this.cleanJsonResponse(rawText);
+      console.log("[LLMHelper] After cleaning:", text);
       
       const parsed = JSON.parse(text);
       
