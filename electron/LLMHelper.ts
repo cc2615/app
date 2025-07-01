@@ -414,7 +414,7 @@ Be extremely thorough in analyzing the debug images. Capture every detail that m
       
       const prompt = `${activeContext}${this.systemPrompt}
 
-Listen to this audio and respond directly. What was said and what should I do next? Keep it brief and actionable.`;
+Listen to this audio and respond directly. If it's a problem/question, solve it completely with full steps. If it's a task/instruction, list the next steps to complete it. Be direct and actionable.`;
 
       const result = await this.model.generateContent([prompt, audioPart]);
       
@@ -441,7 +441,7 @@ Listen to this audio and respond directly. What was said and what should I do ne
       
       const prompt = `${activeContext}${this.systemPrompt}
 
-Listen to this audio and solve any problem mentioned. If it's a question, answer it directly. If it's a task, complete it. Be brief - give the solution, not suggestions to use other tools.`;
+Listen to this audio and solve any problem mentioned. If it's a question, answer it directly with full steps. If it's a task, complete it with detailed next steps. Be direct and actionable - give the complete solution or clear next steps.`;
 
       const result = await this.model.generateContent([prompt, audioPart]);
       
@@ -471,7 +471,7 @@ Listen to this audio and solve any problem mentioned. If it's a question, answer
       const prompt = `${activeContext}Analyze this screenshot comprehensively and extract ALL visible information in JSON format:
 
 {
-  "main_problem": "The primary problem or question to solve",
+  "main_problem": "If this shows a problem/question, solve it completely with full steps. If this is not a problem but shows a task/interface, list the next steps to complete the task. Be direct and actionable. Use LaTeX formatting for math or equations if needed (e.g., \\(x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\\)).",
   "ui_elements": [
     {
       "type": "button|text|input|image|icon|menu|tab|link|form|table|list|chart|graph|video|audio|other",
@@ -513,6 +513,11 @@ Listen to this audio and solve any problem mentioned. If it's a question, answer
     "responsive": true|false
   }
 }
+
+IMPORTANT: For the main_problem field:
+- If this shows a problem/question: Solve it completely with full step-by-step solution
+- If this shows a task/interface (not a problem): List the next steps to complete the task
+- Be direct, actionable, and provide complete solutions or clear next steps
 
 Be extremely thorough - capture every single visible element, text, button, and detail. Don't miss anything. Return only the JSON object.`;
 

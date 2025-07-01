@@ -5,6 +5,8 @@ import ReactMarkdown from "react-markdown"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
 import ChatUI from "../components/Solutions/ChatUI"
 import ScreenAnalysisDisplay from "../components/Solutions/ScreenAnalysisDisplay"
 
@@ -55,7 +57,8 @@ export const ContentSection = ({
       <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px] markdown-content">
         {typeof content === 'string' ? (
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
             components={{
               code({ node, className, children, ...props }) {
                 const match = /language-(\w+)/.exec(className || '')
@@ -129,7 +132,8 @@ const SolutionSection = ({
       <div className="w-full markdown-content">
         {typeof content === 'string' ? (
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
             components={{
               code({ node, className, children, ...props }) {
                 const match = /language-(\w+)/.exec(className || '')
@@ -745,13 +749,10 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
           {/* screen Analysis Display --- show when detailed analysis is available */}
           {problemStatementData?.validation_type === "manual" && problemStatementData?.input_format?.detailed_analysis && (
             <div className="w-full space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[13px] font-medium text-white tracking-wide">
-                  Detailed Screen Analysis
-                </h2>
+              <div className="flex items-center justify-end">
                 <button
                   onClick={() => setShowScreenAnalysis(!showScreenAnalysis)}
-                  className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded transition-colors"
+                  className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded transition-colors border border-gray-600"
                 >
                   {showScreenAnalysis ? 'Hide Details' : 'Show Details'}
                 </button>
