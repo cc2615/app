@@ -55,8 +55,27 @@ if (!gotTheLock) {
 
 // Use the working approach but fix the path issue
 // Force it to NOT use defaultApp mode to avoid the "." bug
-if (process.platform === 'win32') {
+// Cross-platform protocol registration
+if (process.platform === 'darwin') {
+  // macOS: Use Electron's built-in protocol registration
+  console.log('🍎 Registering protocol for macOS')
+  
+  if (!app.isDefaultProtocolClient(protocol)) {
+    const success = app.setAsDefaultProtocolClient(protocol)
+    console.log(`macOS protocol registration ${success ? 'successful' : 'failed'} for ${protocol}://`)
+  } else {
+    console.log(`Already registered as default client for ${protocol}://`)
+  }
+} else if (process.platform === 'win32') {
+  // Windows: Use registry approach (keep existing functionality)
   const { execSync } = require('child_process')
+  
+  const electronPath = process.execPath
+  const appPath = path.resolve(__dirname, '..')
+  const command = `"${electronPath}" "${appPath}" "%1"`
+  
+  console.log('🪟 Registering protocol for Windows')
+  console.log('Target command:', command)
   
   try {
     // Delete any existing registration (suppress output)
@@ -86,7 +105,7 @@ if (process.platform === 'win32') {
   }
 }
 
-console.log(`Manual protocol registration completed: ${protocol}://`)
+console.log(`Protocol registration completed for ${process.platform}: ${protocol}://`)
 
 export class AppState {
   private static instance: AppState | null = null
@@ -419,27 +438,47 @@ async function initializeApp() {
   // Initialize IPC handlers before window creation
   initializeIpcHandlers(appState)
 
+  // Add macOS protocol handler
+  if (process.platform === 'darwin') {
+    app.on('open-url', (event, url) => {
+      console.log('🍎 macOS open-url event:', url)
+      event.preventDefault()
+      
+      // Ensure app is ready and window exists
+      if (app.isReady()) {
+        const mainWindow = appState.getMainWindow()
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) mainWindow.restore()
+          mainWindow.focus()
+          mainWindow.show()
+        }
+      }
+    })
+  }
+
   // Add second-instance handler with detailed logging
   app.on('second-instance', (event, commandLine, workingDirectory) => {
     console.log('🔥 SECOND-INSTANCE EVENT FIRED!')
     console.log('Command line arguments:', commandLine)
     console.log('Working directory:', workingDirectory)
     
-    // Check for protocol URL
-    const protocolUrl = commandLine.find(arg => arg.startsWith('paradigm://'))
-    if (protocolUrl) {
-      console.log('📡 Found protocol URL in command line:', protocolUrl)
-      // The AuthHandler should handle this, but let's log it
-    } else {
-      console.log('❌ No protocol URL found in command line')
-    }
-
     // Focus the main window
     const mainWindow = appState.getMainWindow()
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()
       console.log('🎯 Focused main window')
+    }
+
+    // Handle protocol URLs on Windows
+    if (process.platform === 'win32') {
+      const protocolUrl = commandLine.find(arg => arg.startsWith(`${protocol}://`))
+      if (protocolUrl) {
+        console.log('📡 Found protocol URL in command line:', protocolUrl)
+        // The AuthHandler's existing second-instance handler should pick this up
+      } else {
+        console.log('❌ No protocol URL found in command line')
+      }
     }
   })
 
