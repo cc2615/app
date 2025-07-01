@@ -135,7 +135,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
   return (
     <div className="pt-2 w-fit">
-      <div className="text-xs text-white/90 backdrop-blur-md bg-black/70 rounded-2xl py-2 px-4 flex items-center justify-center gap-8">
+      <div className="text-xs text-white/90 backdrop-blur-md bg-black/70 rounded-2xl py-2 px-8 flex items-center justify-center gap-12">
         {/* Ask AI (Screenshot feature) */}
         <div className="flex items-center gap-2 w-24">
           <span className="text-[11px] leading-none">Ask AI</span>
@@ -149,8 +149,23 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           </div>
         </div>
 
+        {/* Screen Monitor Shortcut (Only in default state) */}
+        {screenshots.length === 0 && (
+          <div className="flex items-center gap-2 w-36">
+            <span className="text-[11px] leading-none">Screen Monitor</span>
+            <div className="flex gap-1">
+              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+                ⌘
+              </button>
+              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+                L
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Show/Hide */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-24">
           <span className="text-[11px] leading-none">Show/Hide</span>
           <div className="flex gap-1">
             <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
