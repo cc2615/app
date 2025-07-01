@@ -82,33 +82,39 @@ export class AuthHandler {
   /**
    * Handle incoming protocol URLs
    */
-  private handleProtocolUrl(url: string): void {
+  public handleProtocolUrl(url: string): void {
     console.log('🔍 HANDLING PROTOCOL URL:', url)
     
     try {
-      const parsedUrl = new URL(url)
       const protocol = process.env.CUSTOM_PROTOCOL || 'paradigm'
-
-      console.log('📝 Parsed URL pathname:', parsedUrl.pathname)
-      console.log('📝 Expected protocol:', protocol)
 
       if (!url.startsWith(`${protocol}://`)) {
         console.warn('❌ Invalid protocol URL:', url)
         return
       }
 
-      switch (parsedUrl.pathname) {
-        case '//auth-success':
-        case '/':  // Handle case where browser adds trailing slash
+      // For custom protocols, we need to parse differently
+      // Extract the path part after the protocol
+      const urlWithoutProtocol = url.replace(`${protocol}://`, '')
+      const [pathPart, queryPart] = urlWithoutProtocol.split('?')
+      
+      console.log('📝 Path part:', pathPart)
+      console.log('📝 Query part:', queryPart)
+
+      // Create a proper URL for parsing query parameters
+      const parsedUrl = new URL(`http://localhost/${pathPart}?${queryPart || ''}`)
+
+      switch (pathPart) {
+        case 'auth-success':
           console.log('✅ Handling auth success!')
           this.handleAuthSuccess(parsedUrl)
           break
-        case '//auth-error':
+        case 'auth-error':
           console.log('❌ Handling auth error!')
           this.handleAuthError(parsedUrl)
           break
         default:
-          console.warn('❓ Unknown auth callback path:', parsedUrl.pathname)
+          console.warn('❓ Unknown auth callback path:', pathPart)
       }
     } catch (error) {
       console.error('💥 Error handling protocol URL:', error)
