@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import 'katex/dist/katex.min.css';
+import ParadigmChatIcon from '../../assets/ParadigmChatIcon.png';
 
 // simple LaTeX renderer using KaTeX
 const renderLatex = (text: string) => {
@@ -304,8 +305,12 @@ const ChatUI = ({
             >
               <div className="flex items-start gap-2 max-w-[320px]">
                 {message.role === 'ai' && (
-                  <div className="w-6 h-6 bg-gray-700 rounded-full flex items-center justify-center mt-1 flex-shrink-0">
-                    <div className="w-2 h-2 bg-white/60 rounded-full"></div>
+                  <div className="w-6 h-6 bg-black/30 rounded-full flex items-center justify-center mt-1 flex-shrink-0 overflow-hidden border border-white/10">
+                    <img 
+                      src={ParadigmChatIcon} 
+                      alt="Paradigm AI" 
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                 )}
                 <div
@@ -334,9 +339,13 @@ const ChatUI = ({
           {chatLoading && (
             <div className="flex justify-start">
               <div className="flex items-start gap-2">
-                <div className="w-6 h-6 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
-                  <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                </div>
+              <div className="w-6 h-6 bg-black/30 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/10">
+                <img 
+                  src={ParadigmChatIcon} 
+                  alt="Paradigm AI" 
+                  className="w-full h-full object-contain"
+                />
+              </div>
                 <div className="text-white/60 text-[12px] bg-gray-800 px-3 py-2 rounded-lg">
                   <div className="flex items-center gap-1">
                     <span>Typing</span>
