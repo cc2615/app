@@ -817,7 +817,7 @@ CRITICAL: Return ONLY the JSON object with no additional text, explanations, or 
       const result = await this.model.generateContent(prompt);
       
       const response = await result.response;
-      const text = this.cleanJsonResponse(response.text());
+      const text = response.text();
       
       return { text };
     } catch (error) {
