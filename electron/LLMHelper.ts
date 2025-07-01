@@ -463,7 +463,7 @@ Solve it directly, taking into account all the UI elements and context provided.
   }
 }
 
-For math problems: show the work and final answer. For code: provide working code. For UI problems: consider the available elements and their states. Don't suggest external tools - solve it yourself. 
+For math problems: show the work and final answer using LaTeX formatting with \\(\\) for inline math and \\[\\] for display equations. Use only basic LaTeX: \\frac{a}{b} for fractions, \\sqrt{x} for square roots, ^{} for exponents, _{} for subscripts. For code: provide working code. For UI problems: consider the available elements and their states. Don't suggest external tools - solve it yourself.
 
 CRITICAL: Return ONLY the JSON object with no additional text, explanations, or markdown formatting. Ensure all quotes and special characters are properly escaped.`
 
@@ -674,7 +674,7 @@ Listen to this audio and solve any problem mentioned. If it's a question, answer
 IMPORTANT: Return ONLY valid JSON. All quotes, backslashes, and special characters within string values must be properly escaped. Do not include any text before or after the JSON object.
 
 {
-  "main_problem": "If this shows a problem/question, solve it completely with full steps. If this is not a problem but shows a task/interface, list the next steps to complete the task. Be direct and actionable. Use LaTeX formatting for math or equations if needed (e.g., \\(x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\\)).",
+  "main_problem": "If this shows a problem/question, solve it completely with full steps using LaTeX formatting: \\(\\) for inline math, \\[\\] for display math. Use only basic LaTeX: \\frac{a}{b} for fractions, \\sqrt{x} for square roots, ^{} for exponents, _{} for subscripts. If this is not a problem but shows a task/interface, list the next steps to complete the task. Be direct and actionable.",
   "ui_elements": [
     {
       "type": "button|text|input|image|icon|menu|tab|link|form|table|list|chart|graph|video|audio|other",
@@ -805,7 +805,9 @@ CRITICAL: Return ONLY the JSON object with no additional text, explanations, or 
       }
 
       // Build a string prompt from the active context, system prompt, context, and chat history
-      let prompt = `${activeContext}System: ${this.systemPrompt}${contextInfo}\n`;
+      let prompt = `${activeContext}System: ${this.systemPrompt}
+
+IMPORTANT: When solving math problems, use LaTeX formatting with \\(\\) for inline math and \\[\\] for display equations. Use only basic LaTeX: \\frac{a}{b} for fractions, \\sqrt{x} for square roots, ^{} for exponents, _{} for subscripts.${contextInfo}\n`;
       for (const msg of history) {
         if (msg.role === 'user') {
           prompt += `User: ${msg.content}\n`;

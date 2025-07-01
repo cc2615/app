@@ -3,13 +3,13 @@ import 'katex/dist/katex.min.css';
 
 // simple LaTeX renderer using KaTeX
 const renderLatex = (text: string) => {
-  // split text by LaTeX delimiters
-  const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]*?\$)/);
+  // Handle both \(...\) and $...$ for inline math, and \[...\] and $$...$$ for display math
+  const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]*?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/);
   
   return parts.map((part, index) => {
-    if (part.startsWith('$$') && part.endsWith('$$')) {
-      // block math
-      const latex = part.slice(2, -2);
+    // Display math - both $$..$$ and \[..\] (these should be centered blocks)
+    if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('\\[') && part.endsWith('\\]'))) {
+      const latex = part.startsWith('$$') ? part.slice(2, -2) : part.slice(2, -2);
       try {
         const katex = (window as any).katex;
         if (katex) {
@@ -26,9 +26,10 @@ const renderLatex = (text: string) => {
       } catch (e) {
         return <span key={index} className="text-red-400">[Math Error: {latex}]</span>;
       }
-    } else if (part.startsWith('$') && part.endsWith('$')) {
-      // inline math
-      const latex = part.slice(1, -1);
+    } 
+    // Inline math - both $.$ and \(..\) (these should stay inline)
+    else if ((part.startsWith('$') && part.endsWith('$')) || (part.startsWith('\\(') && part.endsWith('\\)'))) {
+      const latex = part.startsWith('$') ? part.slice(1, -1) : part.slice(2, -2);
       try {
         const katex = (window as any).katex;
         if (katex) {

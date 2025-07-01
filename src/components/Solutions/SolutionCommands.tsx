@@ -95,6 +95,20 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
     }
   }
 
+  const handleRefreshContext = async () => {
+    try {
+      const result = await window.electronAPI.refreshContext()
+      if (result.success) {
+        console.log('Context refreshed successfully')
+      } else {
+        console.error('Failed to refresh context:', result.error)
+      }
+    } catch (error) {
+      console.error('Error refreshing context:', error)
+    }
+    setIsMenuOpen(false)
+  }
+
   return (
     <div>
       <div className="pt-2 w-fit">
@@ -172,7 +186,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
           </div>
 
           {/* Three Dots Menu */}
-          <div className="relative" ref={menuRef}>
+          <div className="relative z-50" ref={menuRef}>
             <button
               className="text-white/70 hover:text-white/90 transition-colors hover:cursor-pointer"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -182,8 +196,20 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
             {/* Dropdown Menu */}
             {isMenuOpen && (
-              <div className="absolute top-full right-0 mt-2 w-32">
-                <div className="p-2 bg-black/80 backdrop-blur-md rounded-lg border border-white/10 shadow-lg">
+              <div className="absolute top-full right-0 mt-2 w-40 z-[9999]">
+                <div className="p-2 bg-black/80 backdrop-blur-md rounded-lg border border-white/10 shadow-lg relative z-[9999]">
+                  {/* Refresh Context Button */}
+                  <button
+                    className="flex items-center gap-2 w-full px-2 py-1 text-xs text-white/70 hover:text-white/90 hover:bg-white/10 rounded transition-colors mb-1"
+                    onClick={handleRefreshContext}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Refresh Context</span>
+                  </button>
+
+                  {/* Close Button */}
                   <button
                     className="flex items-center gap-2 w-full px-2 py-1 text-xs text-red-500/70 hover:text-red-500/90 hover:bg-red-500/10 rounded transition-colors"
                     onClick={() => {

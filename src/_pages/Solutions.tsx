@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "react-query"
 import ReactMarkdown from "react-markdown"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
+import 'katex/dist/katex.min.css';
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
@@ -33,6 +34,46 @@ function omit<T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K
   return ret
 }
 
+// LaTeX renderer using KaTeX (copied from ChatUI)
+const renderLatex = (text: string) => {
+  // First, let's preserve the original text and process it more carefully
+  let result = text;
+  
+  // Handle display math blocks first - be more specific with the regex
+  result = result.replace(/\\\[([\s\S]*?)\\\]/g, (match, latex) => {
+    try {
+      const katex = (window as any).katex;
+      if (katex) {
+        const rendered = katex.renderToString(latex.trim(), { displayMode: true });
+        return `<div class="my-2 text-center">${rendered}</div>`;
+      }
+    } catch (e) {
+      console.log('Display math error:', latex.trim(), e);
+      return `<span class="text-red-400">[Math Error: ${latex.trim()}]</span>`;
+    }
+    return match;
+  });
+
+  // Handle inline math - be more careful with escaping
+  result = result.replace(/\\\((.*?)\\\)/g, (match, latex) => {
+    try {
+      const katex = (window as any).katex;
+      if (katex) {
+        return katex.renderToString(latex.trim(), { displayMode: false });
+      }
+    } catch (e) {
+      console.log('Inline math error:', latex.trim(), e);
+      return `<span class="text-red-400">[Math Error: ${latex.trim()}]</span>`;
+    }
+    return match;
+  });
+
+  // Convert newlines to br tags for proper formatting
+  result = result.replace(/\n/g, '<br>');
+
+  return <div dangerouslySetInnerHTML={{ __html: result }} />;
+};
+
 export const ContentSection = ({
   title,
   content,
@@ -41,70 +82,82 @@ export const ContentSection = ({
   title: string
   content: React.ReactNode
   isLoading: boolean
-}) => (
-  <div className="space-y-2">
-    <h2 className="text-[13px] font-medium text-white tracking-wide">
-      {title}
-    </h2>
-    {isLoading ? (
-      <div className="mt-4 flex">
-        <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
-          Extracting problem statement...
-        </p>
-      </div>
-    ) : (
-      <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px] markdown-content">
-        {typeof content === 'string' ? (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-            components={{
-              code({ node, className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '')
-                return !(node && "inline" in node && (node as any).inline) && match ? (
-                  <SyntaxHighlighter
-                    style={dracula as any}
-                    language={match[1]}
-                    PreTag="div"
-                    customStyle={{
-                      margin: '0.5rem 0',
-                      borderRadius: '6px',
-                      fontSize: '12px'
-                    }}
-                    {...omit(props, ['ref'])}
-                  >
-                    {String(children).replace(/\n$/, '')}
-                  </SyntaxHighlighter>
-                ) : (
-                  <code className="bg-gray-800 px-1 py-0.5 rounded text-xs" {...props}>
-                    {children}
-                  </code>
-                )
-              },
-              p: ({ children }) => <p className="mb-2">{children}</p>,
-              ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-              li: ({ children }) => <li className="text-[13px]">{children}</li>,
-              h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
-              h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
-              h3: ({ children }) => <h3 className="text-sm font-medium mb-1">{children}</h3>,
-              blockquote: ({ children }) => (
-                <blockquote className="border-l-4 border-blue-400 pl-3 italic text-gray-300 mb-2">
-                  {children}
-                </blockquote>
-              ),
-              strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
-            }}
-          >
-            {content}
-          </ReactMarkdown>
-        ) : (
-          content
-        )}
-      </div>
-    )}
-  </div>
-)
+}) => {
+  // Load KaTeX if not already loaded (inside the component this time)
+  React.useEffect(() => {
+    if (!(window as any).katex) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  // Simple LaTeX renderer
+  const renderLatex = (text: string) => {
+    // First, let's preserve the original text and process it more carefully
+    let result = text;
+    
+    // Handle display math blocks first - be more specific with the regex
+    result = result.replace(/\\\[([\s\S]*?)\\\]/g, (match, latex) => {
+      try {
+        const katex = (window as any).katex;
+        if (katex) {
+          const rendered = katex.renderToString(latex.trim(), { displayMode: true });
+          return `<div class="my-2 text-center">${rendered}</div>`;
+        }
+      } catch (e) {
+        console.log('Display math error:', latex.trim(), e);
+        return `<span class="text-red-400">[Math Error: ${latex.trim()}]</span>`;
+      }
+      return match;
+    });
+  
+    // Handle inline math - be more careful with escaping
+    result = result.replace(/\\\((.*?)\\\)/g, (match, latex) => {
+      try {
+        const katex = (window as any).katex;
+        if (katex) {
+          return katex.renderToString(latex.trim(), { displayMode: false });
+        }
+      } catch (e) {
+        console.log('Inline math error:', latex.trim(), e);
+        return `<span class="text-red-400">[Math Error: ${latex.trim()}]</span>`;
+      }
+      return match;
+    });
+  
+    // Convert newlines to br tags for proper formatting
+    result = result.replace(/\n/g, '<br>');
+  
+    return <div dangerouslySetInnerHTML={{ __html: result }} />;
+  };
+
+  return (
+    <div className="space-y-2">
+      <h2 className="text-[13px] font-medium text-white tracking-wide">
+        {title}
+      </h2>
+      {isLoading ? (
+        <div className="mt-4 flex">
+          <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+            Extracting problem statement...
+          </p>
+        </div>
+      ) : (
+        <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px] markdown-content">
+          {typeof content === 'string' ? (
+            <div className="rendered-content">
+              {renderLatex(content)}
+            </div>
+          ) : (
+            content
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const SolutionSection = ({
   title,
