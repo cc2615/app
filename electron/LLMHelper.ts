@@ -355,12 +355,17 @@ export class LLMHelper {
 
   public async extractProblemFromImages(imagePaths: string[]) {
     try {
+      const activeContext = await this.getActiveContext()
       const imageParts = await Promise.all(imagePaths.map(path => this.fileToGenerativePart(path)))
       
-      const prompt = `Analyze these images comprehensively and extract ALL visible information in JSON format:
+      const prompt = `${activeContext}
+
+IMPORTANT: Use the active context above when analyzing and solving any problems in these screenshots.
+
+Analyze these images comprehensively and extract ALL visible information in JSON format:
 
 {
-  "main_problem": "The primary problem or question to solve",
+  "main_problem": "The primary problem or question to solve - if this shows a problem, solve it completely using the active context above",
   "ui_elements": [
     {
       "type": "button|text|input|image|icon|menu|tab|link|form|table|list|chart|graph|video|audio|other",
@@ -654,21 +659,11 @@ CRITICAL: Return ONLY the JSON object with no additional text, explanations, or 
       const transcript = await this.transcribeAudio(base64Data, "audio/mp3");
       
       // Step 2: Analyze the transcript
-      const analysisPrompt = `${activeContext}${this.systemPrompt}
+      const analysisPrompt = `${activeContext}You are a helpful personal assistant. Someone just spoke to you.
 
-  Analyze this audio transcript and provide insights, solutions, and actionable next steps:
-
-  Transcript: "${transcript}"
-
-  Provide a comprehensive analysis including:
-  - Key insights or solutions
-  - Important points discussed
-  - Any action items mentioned
-  - Relevant context and implications
-  - Next steps or recommendations
-
-  Be direct and actionable.`;
-
+      Audio transcript: "${transcript}"
+      
+      Give a brief, helpful response. If the audio was unclear, say what you heard and ask for clarification. If it's a clear request, give a short answer. Keep it conversational and under 2 sentences. No bullet points, no special formatting, no asterisks, no markdown - just plain text.`;
       const analysisResult = await this.model.generateContent(analysisPrompt);
       const analysisResponse = await analysisResult.response;
       const analysis = analysisResponse.text();
@@ -715,21 +710,12 @@ CRITICAL: Return ONLY the JSON object with no additional text, explanations, or 
       const transcript = await this.transcribeAudio(data, mimeType);
       
       // Step 2: Analyze the transcript  
-      const analysisPrompt = `${activeContext}${this.systemPrompt}
-  
-  Analyze this audio transcript and provide insights, solutions, and actionable next steps:
-  
-  Transcript: "${transcript}"
-  
-  Provide a comprehensive analysis including:
-  - Key insights or solutions
-  - Important points discussed  
-  - Any action items mentioned
-  - Relevant context and implications
-  - Next steps or recommendations
-  
-  Be direct and actionable.`;
-  
+      const analysisPrompt = `${activeContext}You are a helpful personal assistant. Someone just spoke to you.
+
+      Audio transcript: "${transcript}"
+      
+      Give a brief, helpful response. If the audio was unclear, say what you heard and ask for clarification. If it's a clear request, give a short answer. Keep it conversational and under 2 sentences. No bullet points, no special formatting, no asterisks, no markdown - just plain text.`;
+
       const analysisResult = await this.model.generateContent(analysisPrompt);
       const analysisResponse = await analysisResult.response;
       const analysis = analysisResponse.text();
@@ -780,7 +766,11 @@ CRITICAL: Return ONLY the JSON object with no additional text, explanations, or 
         }
       };
       
-      const prompt = `${activeContext}Analyze this screenshot comprehensively and extract ALL visible information in JSON format:
+      const prompt = `${activeContext}
+
+IMPORTANT: Use the active context above when analyzing and solving any problems in this screenshot.
+
+Analyze this screenshot comprehensively and extract ALL visible information in JSON format:
 
 IMPORTANT: Return ONLY valid JSON. All quotes, backslashes, and special characters within string values must be properly escaped. Do not include any text before or after the JSON object.
 

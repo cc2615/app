@@ -37,6 +37,30 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     }
   }, [onTooltipVisibilityChange])
 
+  // Listen for reset-view IPC message from main process
+  useEffect(() => {
+    const handleResetView = () => {
+      console.log('Received reset-view message, clearing audio result')
+      setAudioResult(null)
+      
+      // Stop recording if active
+      if (isRecording && mediaRecorder) {
+        mediaRecorder.stop()
+        setIsRecording(false)
+        setMediaRecorder(null)
+      }
+      
+      // Reset recording time
+      setRecordingTime(0)
+    }
+
+    // Listen for the reset-view message from main process
+    const cleanup = window.electronAPI?.onResetView(handleResetView)
+
+    // Cleanup listener on unmount
+    return cleanup
+  }, [isRecording, mediaRecorder])
+
   useEffect(() => {
     if (isRecording) {
       timerRef.current = setInterval(() => {
@@ -172,6 +196,21 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
               </button>
               <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
                 ↵
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Reset Command - Show only when audio result exists */}
+        {audioResult && (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] leading-none">Reset</span>
+            <div className="flex gap-1">
+              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+                ⌘
+              </button>
+              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+                R
               </button>
             </div>
           </div>
