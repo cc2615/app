@@ -1,6 +1,7 @@
 // src/components/Queue/QueueCommands.tsx
 
 import React, { useState, useEffect, useRef } from "react"
+import { createPortal } from "react-dom"  // ADD THIS
 import { BsThreeDotsVertical } from "react-icons/bs"
 import { IoLogOutOutline } from "react-icons/io5"
 
@@ -25,17 +26,25 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   useEffect(() => {
     // Close menu when clicking outside
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false)
-        onTooltipVisibilityChange(false, 0)
+      const target = event.target as Node
+      
+      // Check if click is outside the menu button
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        // Also check if click is outside the dropdown menu (which is now in a portal)
+        // Find the dropdown menu in the DOM
+        const dropdownMenu = document.querySelector('[data-dropdown-menu]')
+        
+        if (!dropdownMenu || !dropdownMenu.contains(target)) {
+          setIsMenuOpen(false)
+        }
       }
     }
-
+  
     document.addEventListener('mousedown', handleClickOutside)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [onTooltipVisibilityChange])
+  }, [])
 
   // Listen for reset-view IPC message from main process
   useEffect(() => {
@@ -243,55 +252,59 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             <BsThreeDotsVertical className="w-3 h-3" />
           </button>
 
-          {/* Dropdown Menu */}
-          {isMenuOpen && (
-            <div className="absolute top-full right-0 mt-2 w-40">
-              <div className="p-2 bg-black/80 backdrop-blur-md rounded-lg border border-white/10 shadow-lg">
-                {/* Refresh Context Button */}
-                <button
-                  className="flex items-center gap-2 w-full px-2 py-1 text-xs text-white/70 hover:text-white/90 hover:bg-white/10 rounded transition-colors mb-1"
-                  onClick={handleRefreshContext}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span>Refresh Context</span>
-                </button>
+          {/* Dropdown Menu - Rendered as Portal */}
+          {isMenuOpen && createPortal(
+            <div 
+              data-dropdown-menu  
+              className="fixed w-40 z-[99999] bg-black/80 backdrop-blur-md rounded-lg border border-white/10 shadow-lg p-2"
+              style={{
+                left: menuRef.current ? menuRef.current.getBoundingClientRect().right - 160 : 0,
+                top: menuRef.current ? menuRef.current.getBoundingClientRect().bottom + 8 : 0,
+              }}
+            >
+              {/* Refresh Context Button */}
+              <button
+                className="flex items-center gap-2 w-full px-2 py-1 text-xs text-white/70 hover:text-white/90 hover:bg-white/10 rounded transition-colors mb-1"
+                onClick={handleRefreshContext}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Refresh Context</span>
+              </button>
 
-                {/* Logout Button */}
-                <button
-                  className="flex items-center gap-2 w-full px-2 py-1 text-xs text-yellow-500/70 hover:text-yellow-500/90 hover:bg-yellow-500/10 rounded transition-colors mb-1"
-                  onClick={async () => {
-                    try {
-                      await window.electronAPI.logout()
-                      console.log('User logged out')
-                    } catch (error) {
-                      console.error('Logout failed:', error)
-                    }
-                    setIsMenuOpen(false)
-                    onTooltipVisibilityChange(false, 0)
-                  }}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  <span>Logout</span>
-                </button>
+              {/* Logout Button */}
+              <button
+                className="flex items-center gap-2 w-full px-2 py-1 text-xs text-yellow-500/70 hover:text-yellow-500/90 hover:bg-yellow-500/10 rounded transition-colors mb-1"
+                onClick={async () => {
+                  try {
+                    await window.electronAPI.logout()
+                    console.log('User logged out')
+                  } catch (error) {
+                    console.error('Logout failed:', error)
+                  }
+                  setIsMenuOpen(false)
+                }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span>Logout</span>
+              </button>
 
-                {/* Close Button */}
-                <button
-                  className="flex items-center gap-2 w-full px-2 py-1 text-xs text-red-500/70 hover:text-red-500/90 hover:bg-red-500/10 rounded transition-colors"
-                  onClick={() => {
-                    window.electronAPI.quitApp()
-                    setIsMenuOpen(false)
-                    onTooltipVisibilityChange(false, 0)
-                  }}
-                >
-                  <IoLogOutOutline className="w-4 h-4" />
-                  <span>Close</span>
-                </button>
-              </div>
-            </div>
+              {/* Close Button */}
+              <button
+                className="flex items-center gap-2 w-full px-2 py-1 text-xs text-red-500/70 hover:text-red-500/90 hover:bg-red-500/10 rounded transition-colors"
+                onClick={() => {
+                  window.electronAPI.quitApp()
+                  setIsMenuOpen(false)
+                }}
+              >
+                <IoLogOutOutline className="w-4 h-4" />
+                <span>Close</span>
+              </button>
+            </div>,
+            document.body
           )}
         </div>
       </div>
