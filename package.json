@@ -1,6 +1,6 @@
 {
   "name": "Paradigm",
-  "productName": "Paradigm", 
+  "productName": "Paradigm",
   "displayName": "Paradigm",
   "version": "1.0.0",
   "main": "./dist-electron/main.js",
@@ -15,6 +15,7 @@
     "electron:dev": "tsc -p electron/tsconfig.json && electron .",
     "app:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env electron .\"",
     "app:build": "npm run build && electron-builder",
+    "app:build:mac": "npm run build && electron-builder --mac",
     "watch": "tsc -p electron/tsconfig.json --watch"
   },
   "build": {
@@ -33,10 +34,30 @@
     "mac": {
       "category": "public.app-category.utilities",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
       ],
-      "icon": "assets/icons/icon.icns"
+      "icon": "icons/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "protocols": [
+        {
+          "name": "Paradigm Protocol",
+          "schemes": ["paradigm"]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "Paradigm Installer",
+      "icon": "icons/icon.icns"
     },
     "win": {
       "target": [
@@ -72,7 +93,9 @@
     ],
     "includeSubNodeModules": true
   },
-  "keywords": ["Paradigm"],
+  "keywords": [
+    "Paradigm"
+  ],
   "author": "Christopher Ma <chris.pengfei.ma@gmail.com>, Caden Chen <cadenc.woss@gmail.com>",
   "license": "MIT",
   "description": "Paradigm",
