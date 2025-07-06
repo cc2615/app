@@ -360,7 +360,7 @@ export class LLMHelper {
       
       const prompt = `${activeContext}
 
-IMPORTANT: Use the active context above when analyzing and solving any problems in these screenshots.
+IMPORTANT: IT IS CRUCIAL THAT YOU FOLLOW THE ACTIVE CONTEXT above when analyzing and solving any problems in these screenshots.
 
 Analyze these images comprehensively and extract ALL visible information in JSON format:
 
