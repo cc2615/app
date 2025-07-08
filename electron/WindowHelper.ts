@@ -21,7 +21,8 @@ export class WindowHelper {
   // Initialize with explicit number type and 0 value
   private screenWidth: number = 0
   private screenHeight: number = 0
-  private step: number = 0
+  private stepX: number = 0  // Step for horizontal movement
+  private stepY: number = 0  // Step for vertical movement
   private currentX: number = 0
   private currentY: number = 0
 
@@ -74,7 +75,9 @@ export class WindowHelper {
     this.screenWidth = workArea.width
     this.screenHeight = workArea.height
 
-    this.step = Math.floor(this.screenWidth / 10) // 10 steps
+    // Separate step calculations for X and Y movement
+    this.stepX = Math.floor(this.screenWidth / 10)   // 10 steps horizontally
+    this.stepY = Math.floor(this.screenHeight / 10)  // 10 steps vertically
     this.currentX = 0 // Start at the left
 
     const windowSettings: Electron.BrowserWindowConstructorOptions = {
@@ -232,7 +235,7 @@ export class WindowHelper {
     }
   }
 
-  // New methods for window movement
+  // Updated methods for window movement with separate X/Y steps
   public moveWindowRight(): void {
     if (!this.mainWindow) return
 
@@ -245,7 +248,7 @@ export class WindowHelper {
 
     this.currentX = Math.min(
       this.screenWidth - halfWidth,
-      this.currentX + this.step
+      this.currentX + this.stepX  // Use stepX for horizontal movement
     )
     this.mainWindow.setPosition(
       Math.round(this.currentX),
@@ -263,7 +266,7 @@ export class WindowHelper {
     this.currentX = Number(this.currentX) || 0
     this.currentY = Number(this.currentY) || 0
 
-    this.currentX = Math.max(-halfWidth, this.currentX - this.step)
+    this.currentX = Math.max(-halfWidth, this.currentX - this.stepX)  // Use stepX for horizontal movement
     this.mainWindow.setPosition(
       Math.round(this.currentX),
       Math.round(this.currentY)
@@ -282,7 +285,7 @@ export class WindowHelper {
 
     this.currentY = Math.min(
       this.screenHeight - halfHeight,
-      this.currentY + this.step
+      this.currentY + this.stepY  // Use stepY for vertical movement
     )
     this.mainWindow.setPosition(
       Math.round(this.currentX),
@@ -300,7 +303,7 @@ export class WindowHelper {
     this.currentX = Number(this.currentX) || 0
     this.currentY = Number(this.currentY) || 0
 
-    this.currentY = Math.max(-halfHeight, this.currentY - this.step)
+    this.currentY = Math.max(-halfHeight, this.currentY - this.stepY)  // Use stepY for vertical movement
     this.mainWindow.setPosition(
       Math.round(this.currentX),
       Math.round(this.currentY)
