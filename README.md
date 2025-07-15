@@ -1,6 +1,6 @@
 # PARADIGM
 
-Paradigm
+A modern AI assistant platform that provides personal AI assistance with screen viewing, call listening, and contextual understanding capabilities.
 
 ## Features
 
