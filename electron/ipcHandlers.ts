@@ -176,7 +176,7 @@ export function initializeIpcHandlers(appState: AppState): void {
         error: error.message
       }
     }
-  })
+  }) 
 
   // Check if user is authenticated (for middleware/guards)
   ipcMain.handle("is-authenticated", async () => {
