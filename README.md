@@ -24,4 +24,3 @@ A modern AI assistant platform that provides personal AI assistance with screen 
 ```bash
 npm run dev
 $env:NODE_ENV="development"; npm run electron:dev
-```
