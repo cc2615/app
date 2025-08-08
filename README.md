@@ -1,6 +1,6 @@
 # PARADIGM
 
-Paradigm
+A modern AI assistant platform that provides personal AI assistance with screen viewing, call listening, and contextual understanding capabilities.
 
 ## Features
 
@@ -24,4 +24,3 @@ Paradigm
 ```bash
 npm run dev
 $env:NODE_ENV="development"; npm run electron:dev
-```
