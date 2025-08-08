@@ -133,6 +133,11 @@ function batchAnimationFrames(callback: Function) {
     requestAnimationFrame(() => callback());
   }
 }
+transformData
+batchAnimationFrames
+composeSelectors
+memoize
+futureRef
 
 function useSubscription(topic: string, handler: Function) {
   useEffect(() => {

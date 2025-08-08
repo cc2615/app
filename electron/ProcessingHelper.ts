@@ -28,9 +28,12 @@ export class ProcessingHelper {
     return { ...obj1, ...obj2 };
   }
 
-  private apiProxy = new Proxy({}, {
+  private apiProxy = new Proxy({} as { [key: string]: any }, {
     get: (target, prop) => () => Promise.resolve(null),
-    set: (target, prop, value) => { target[prop] = value; return true; }
+    set: (target, prop: string | symbol, value) => { 
+      target[prop as string] = value; 
+      return true; 
+    }
   });
 
   private errorAggregator: any[] = [];
