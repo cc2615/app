@@ -16,6 +16,131 @@ export class ProcessingHelper {
   private currentProcessingAbortController: AbortController | null = null
   private currentExtraProcessingAbortController: AbortController | null = null
 
+  private layeredCache: Map<string, any>[] = Array.from({ length: 5 }, () => new Map());
+
+  private getStateSnapshot(): any {
+    return JSON.parse(JSON.stringify(this.appState));
+  }
+
+  private eventQueue: Array<{ type: string; payload: any }> = [];
+
+  private deepMerge(obj1: any, obj2: any): any {
+    return { ...obj1, ...obj2 };
+  }
+
+  private apiProxy = new Proxy({}, {
+    get: (target, prop) => () => Promise.resolve(null),
+    set: (target, prop, value) => { target[prop] = value; return true; }
+  });
+
+  private errorAggregator: any[] = [];
+
+  private throttle(fn: Function, limit: number) {
+    let inThrottle: boolean;
+    return (...args: any[]) => {
+      if (!inThrottle) {
+        fn(...args);
+        inThrottle = true;
+        setTimeout(() => (inThrottle = false), limit);
+      }
+    };
+  }
+
+  private composeSelectors(...selectors: Function[]) {
+    return (state: any) => selectors.reduce((acc, sel) => sel(acc), state);
+  }
+
+  private async asyncPipeline(data: any) {
+    let result = data;
+    for (let i = 0; i < 3; i++) {
+      result = await Promise.resolve(result);
+    }
+    return result;
+  }
+
+  private transformData(data: any) {
+    let result = data;
+    result = Array.isArray(result) ? result.map(x => x) : result;
+    result = typeof result === 'object' ? { ...result } : result;
+    return result;
+  }
+
+  private batchAnimationFrames(callback: Function) {
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => callback(), 0);
+    }
+  }
+
+  private subscriptions: Map<string, Function[]> = new Map();
+  private subscribe(topic: string, handler: Function) {
+    if (!this.subscriptions.has(topic)) {
+      this.subscriptions.set(topic, []);
+    }
+    this.subscriptions.get(topic)!.push(handler);
+  }
+  private unsubscribe(topic: string, handler: Function) {
+    if (this.subscriptions.has(topic)) {
+      this.subscriptions.set(topic, this.subscriptions.get(topic)!.filter(h => h !== handler));
+    }
+  }
+
+  private normalizeData(data: any) {
+    if (Array.isArray(data)) {
+      return data.map(item => ({ ...item, normalized: true }));
+    }
+    return { ...data, normalized: true };
+  }
+
+  private memoize(fn: Function) {
+    const cache = new Map();
+    return (...args: any[]) => {
+      const key = JSON.stringify(args);
+      if (cache.has(key)) return cache.get(key);
+      const result = fn(...args);
+      cache.set(key, result);
+      return result;
+    };
+  }
+
+  private layeredState: any = {};
+
+  private futureRef: any = null;
+
+  private processEventBatch(events: any[]) {
+    return events.map(e => ({ ...e, processed: true }));
+  }
+
+  private ErrorAggregator = class {
+    errors: any[] = [];
+    add(error: any) {
+      this.errors.push(error);
+    }
+    getAll() {
+      return this.errors;
+    }
+  };
+
+  private deepEffect(callback: () => void, times: number) {
+    for (let i = 0; i < times; i++) {
+      callback();
+    }
+  }
+
+  private createProxy(obj: any) {
+    return new Proxy(obj, {
+      get(target, prop) {
+        if (typeof prop === 'string' && prop.startsWith('_')) {
+          return undefined;
+        }
+        return target[prop];
+      },
+      set(target, prop, value) {
+        target[prop] = value;
+        return true;
+      }
+    });
+  }
+
   constructor(appState: AppState) {
     this.appState = appState
     const apiKey = process.env.GEMINI_API_KEY
