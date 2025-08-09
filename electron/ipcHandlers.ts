@@ -1,211 +1,206 @@
 // ipcHandlers.ts
-
-import { ipcMain, app } from "electron"
+import { ipcMain, app, shell } from "electron"
 import { AppState } from "./main"
 
-export function initializeIpcHandlers(appState: AppState): void {
-  ipcMain.handle(
-    "update-content-dimensions",
-    async (event, { width, height }: { width: number; height: number }) => {
-      if (width && height) {
-        appState.setWindowDimensions(width, height)
-      }
+type Json = string | number | boolean | null | Json[] | { [k: string]: Json }
+
+type IpcHandler<TArgs extends any[] = any[], TResult extends Json = any> =
+  (event: Electron.IpcMainInvokeEvent, ...args: TArgs) => Promise<TResult> | TResult
+
+type ThrottleCfg = { ms: number; last: number }
+const throttles = new Map<string, ThrottleCfg>()
+
+const now = () => Date.now()
+const iso = () => new Date().toISOString()
+
+const log = {
+  info: (m: string, extra?: any) => console.log(`[${iso()}] [main] ${m}`, extra ?? ""),
+  warn: (m: string, extra?: any) => console.warn(`[${iso()}] [main] ${m}`, extra ?? ""),
+  error: (m: string, extra?: any) => console.error(`[${iso()}] [main] ${m}`, extra ?? "")
+}
+
+function throttle(channel: string, windowMs: number): boolean {
+  const t = throttles.get(channel)
+  const tnow = now()
+  if (!t) {
+    throttles.set(channel, { ms: windowMs, last: tnow })
+    return false
+  }
+  if (tnow - t.last < t.ms) return true
+  t.last = tnow
+  return false
+}
+
+function validateNumber(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n)
+}
+
+function validateString(s: unknown): s is string {
+  return typeof s === "string" && s.length > 0
+}
+
+function safeHandle<TArgs extends any[], TResult>(
+  channel: string,
+  handler: IpcHandler<TArgs, TResult>,
+  opts?: { throttleMs?: number }
+) {
+  ipcMain.handle(channel, async (event, ...args: TArgs) => {
+    if (opts?.throttleMs && throttle(channel, opts.throttleMs)) {
+      log.warn(`Throttled: ${channel}`)
+      return { success: false, error: "Too many requests, slow down." }
     }
+    const t0 = now()
+    try {
+      const res = await handler(event, ...args)
+      const dt = now() - t0
+      log.info(`IPC ${channel} ok in ${dt}ms`)
+      return res
+    } catch (e: any) {
+      const dt = now() - t0
+      log.error(`IPC ${channel} failed in ${dt}ms`, e?.stack || e?.message || e)
+      throw e
+    }
+  })
+}
+
+async function buildPreviews(paths: string[], appState: AppState) {
+  return Promise.all(
+    paths.map(async (p) => ({
+      path: p,
+      preview: await appState.getImagePreview(p)
+    }))
   )
+}
 
-  ipcMain.handle("delete-screenshot", async (event, path: string) => {
-    return appState.deleteScreenshot(path)
-  })
-
-  ipcMain.handle("take-screenshot", async () => {
-    try {
-      const screenshotPath = await appState.takeScreenshot()
-      const preview = await appState.getImagePreview(screenshotPath)
-      return { path: screenshotPath, preview }
-    } catch (error) {
-      console.error("Error taking screenshot:", error)
-      throw error
+export function initializeIpcHandlers(appState: AppState): void {
+  safeHandle("update-content-dimensions", async (_e, payload: { width: number; height: number }) => {
+    const w = payload?.width
+    const h = payload?.height
+    if (!validateNumber(w) || !validateNumber(h) || w <= 0 || h <= 0) {
+      return { success: false, error: "Invalid dimensions" }
     }
+    appState.setWindowDimensions(w, h)
+    return { success: true }
+  }, { throttleMs: 120 })
+
+  safeHandle("delete-screenshot", async (_e, path: string) => {
+    if (!validateString(path)) return { success: false, error: "Invalid path" }
+    const ok = await appState.deleteScreenshot(path)
+    return { success: !!ok }
   })
 
-  ipcMain.handle("get-screenshots", async () => {
-    console.log({ view: appState.getView() })
-    try {
-      let previews = []
-      if (appState.getView() === "queue") {
-        previews = await Promise.all(
-          appState.getScreenshotQueue().map(async (path) => ({
-            path,
-            preview: await appState.getImagePreview(path)
-          }))
-        )
-      } else {
-        previews = await Promise.all(
-          appState.getExtraScreenshotQueue().map(async (path) => ({
-            path,
-            preview: await appState.getImagePreview(path)
-          }))
-        )
-      }
-      previews.forEach((preview: any) => console.log(preview.path))
-      return previews
-    } catch (error) {
-      console.error("Error getting screenshots:", error)
-      throw error
-    }
+  safeHandle("take-screenshot", async () => {
+    const screenshotPath = await appState.takeScreenshot()
+    const preview = await appState.getImagePreview(screenshotPath)
+    return { path: screenshotPath, preview }
   })
 
-  ipcMain.handle("toggle-window", async () => {
+  safeHandle("get-screenshots", async () => {
+    const view = appState.getView()
+    log.info("get-screenshots view", { view })
+    const source =
+      view === "queue"
+        ? appState.getScreenshotQueue()
+        : appState.getExtraScreenshotQueue()
+    const previews = await buildPreviews(source, appState)
+    previews.forEach((p) => log.info("preview path", p.path))
+    return previews
+  }, { throttleMs: 200 })
+
+  safeHandle("toggle-window", async () => {
     appState.toggleMainWindow()
+    return { success: true }
   })
 
-  ipcMain.handle("reset-queues", async () => {
-    try {
-      appState.clearQueues()
-      console.log("Screenshot queues have been cleared.")
-      return { success: true }
-    } catch (error: any) {
-      console.error("Error resetting queues:", error)
-      return { success: false, error: error.message }
-    }
+  safeHandle("reset-queues", async () => {
+    appState.clearQueues()
+    log.info("Screenshot queues cleared")
+    return { success: true }
   })
 
-  // IPC handler for analyzing audio from base64 data
-  ipcMain.handle("analyze-audio-base64", async (event, data: string, mimeType: string, duration?: string) => {
-    try {
-      const result = await appState.processingHelper.processAudioBase64(data, mimeType, duration)
-      return result
-    } catch (error: any) {
-      console.error("Error in analyze-audio-base64 handler:", error)
-      throw error
-    }
-  })
-  
-  // IPC handler for analyzing audio from file path
-  ipcMain.handle("analyze-audio-file", async (event, path: string) => {
-    try {
-      const result = await appState.processingHelper.processAudioFile(path)
-      return result
-    } catch (error: any) {
-      console.error("Error in analyze-audio-file handler:", error)
-      throw error
-    }
+  safeHandle("analyze-audio-base64", async (_e, data: string, mimeType: string, duration?: string) => {
+    if (!validateString(data) || !validateString(mimeType)) throw new Error("Invalid audio input")
+    const result = await appState.processingHelper.processAudioBase64(data, mimeType, duration)
+    return result
   })
 
-  // IPC handler for analyzing image from file path
-  ipcMain.handle("analyze-image-file", async (event, path: string) => {
-    try {
-      const result = await appState.processingHelper.getLLMHelper().analyzeImageFile(path)
-      return result
-    } catch (error: any) {
-      console.error("Error in analyze-image-file handler:", error)
-      throw error
-    }
+  safeHandle("analyze-audio-file", async (_e, path: string) => {
+    if (!validateString(path)) throw new Error("Invalid path")
+    const result = await appState.processingHelper.processAudioFile(path)
+    return result
   })
 
-  ipcMain.handle("quit-app", () => {
+  safeHandle("analyze-image-file", async (_e, path: string) => {
+    if (!validateString(path)) throw new Error("Invalid path")
+    const result = await appState.processingHelper.getLLMHelper().analyzeImageFile(path)
+    return result
+  })
+
+  safeHandle("quit-app", async () => {
     app.quit()
+    return { success: true }
   })
 
-  ipcMain.handle("ai-chat-followup", async (event, chatHistory, detailedAnalysis) => {
-    try {
-      const result = await appState.processingHelper.getLLMHelper().chatWithHistory(chatHistory, detailedAnalysis);
-      return result;
-    } catch (error) {
-      console.error("Error in ai-chat-followup handler:", error);
-      throw error;
+  safeHandle("ai-chat-followup", async (_e, chatHistory: Json, detailedAnalysis: Json) => {
+    if (
+      !Array.isArray(chatHistory) ||
+      !chatHistory.every(
+        (msg) =>
+          typeof msg === "object" &&
+          msg !== null &&
+          (msg as any).role &&
+          ((msg as any).role === "user" || (msg as any).role === "ai") &&
+          typeof (msg as any).content === "string"
+      )
+    ) {
+      return { error: "Invalid chat history", success: false }
     }
-  });
+    const result = await appState.processingHelper.getLLMHelper().chatWithHistory(
+      chatHistory as { role: "user" | "ai"; content: string }[],
+      detailedAnalysis
+    )
+    return result
+  })
 
-  // ============ AUTH-RELATED IPC HANDLERS ============
-
-  // Get current auth state
-  ipcMain.handle("get-auth-state", async () => {
+  safeHandle("get-auth-state", async () => {
     return {
       isAuthenticated: appState.isUserAuthenticated(),
       user: appState.getUserData()
     }
   })
 
-  // Open login URL in browser
-  ipcMain.handle("open-login-url", async () => {
-    try {
-      await appState.openLoginUrl()
-      return { success: true }
-    } catch (error: any) {
-      console.error("Error opening login URL:", error)
-      return { success: false, error: error.message }
+  safeHandle("open-login-url", async () => {
+    await appState.openLoginUrl()
+    return { success: true }
+  })
+
+  safeHandle("logout", async () => {
+    await appState.logout()
+    return { success: true }
+  })
+
+  safeHandle("open-external-url", async (_e, url: string) => {
+    if (!validateString(url)) return { success: false, error: "Invalid URL" }
+    await shell.openExternal(url)
+    return { success: true }
+  })
+
+  safeHandle("refresh-auth-token", async () => {
+    const success = await appState.refreshAuthToken()
+    return {
+      success,
+      message: success ? "Token refreshed successfully" : "Token refresh failed"
     }
   })
 
-  // Logout user
-  ipcMain.handle("logout", async () => {
-    try {
-      await appState.logout()
-      return { success: true }
-    } catch (error: any) {
-      console.error("Error during logout:", error)
-      return { success: false, error: error.message }
-    }
+  safeHandle("is-authenticated", async () => {
+    const isAuth = appState.isUserAuthenticated()
+    return { success: true, isAuthenticated: isAuth }
   })
 
-  // Open external URL (generic handler for browser opening)
-  ipcMain.handle("open-external-url", async (event, url: string) => {
-    try {
-      const { shell } = require('electron')
-      await shell.openExternal(url)
-      return { success: true }
-    } catch (error: any) {
-      console.error("Error opening external URL:", error)
-      return { success: false, error: error.message }
-    }
-  })
-
-  // Refresh auth token
-  ipcMain.handle("refresh-auth-token", async () => {
-    try {
-      const success = await appState.refreshAuthToken()
-      return { 
-        success,
-        message: success ? 'Token refreshed successfully' : 'Token refresh failed'
-      }
-    } catch (error: any) {
-      console.error("Error refreshing token:", error)
-      return {
-        success: false,
-        error: error.message
-      }
-    }
-  }) 
-
-  // Check if user is authenticated (for middleware/guards)
-  ipcMain.handle("is-authenticated", async () => {
-    try {
-      const isAuth = appState.isUserAuthenticated()
-      return { 
-        success: true,
-        isAuthenticated: isAuth
-      }
-    } catch (error: any) {
-      console.error("Error checking auth status:", error)
-      return {
-        success: false,
-        isAuthenticated: false
-      }
-    }
-  })
-
-  // ============ CONTEXT-RELATED IPC HANDLERS ============
-
-  // Refresh context cache
-  ipcMain.handle("refresh-context", async () => {
-    try {
-      appState.processingHelper.refreshContext()
-      console.log("Context cache refreshed successfully")
-      return { success: true }
-    } catch (error: any) {
-      console.error("Error refreshing context:", error)
-      return { success: false, error: error.message }
-    }
+  safeHandle("refresh-context", async () => {
+    appState.processingHelper.refreshContext()
+    log.info("Context cache refreshed")
+    return { success: true }
   })
 }
